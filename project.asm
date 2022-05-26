@@ -7,7 +7,6 @@ TEC_LIN    EQU 0C000H	; endereco das linhas do teclado (periferico POUT-2)
 TEC_COL    EQU 0E000H	; endereco das colunas do teclado (periferico PIN)
 LINHA      EQU 16		; linha a testar (comecamos na 4a linha, mas por causa do shift right inicial inicializamos ao dobro)
 MASCARA    EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
-SHIFTR     EQU 2		; dividir por 2 para fazer o shift right
 
 ; **********************************************************************
 ; * Código
@@ -19,7 +18,6 @@ inicio:
     MOV  R3, TEC_COL	; endereco do periferico das colunas
     MOV  R4, DISPLAYS	; endereco do periferico dos displays
 	MOV  R5, MASCARA	; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
-	MOV  R6, SHIFTR		; shift right
 
 ; corpo principal do programa
 main_loop:
@@ -29,7 +27,7 @@ main_loop:
 espera_tecla:			; neste ciclo espera-se ate uma tecla ser premida
 	MOV  R1, LINHA		; comecar por testar a linha 4
 loop_espera:
-	DIV R1, R6			; shift right
+	SHR R1, 1			; shift right
 	CMP R1, 0			; verificar se estamos a testar uma linha valida
 	JZ espera_tecla		; reinicializar o valor da linha e recomecar o ciclo caso linha seja invalida
 	MOVB [R2], R1		; escrever no periferico de saída (linhas)
