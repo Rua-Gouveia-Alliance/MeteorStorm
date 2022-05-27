@@ -2,13 +2,13 @@
 ; **********************************************************************
 ; * Constantes
 ; **********************************************************************
-DISPLAYS	EQU 0A000H	; endereco dos displays de 7 segmentos (periferico POUT-1)
-TEC_LIN		EQU 0C000H	; endereco das linhas do teclado (periferico POUT-2)
-TEC_COL		EQU 0E000H	; endereco das colunas do teclado (periferico PIN)
-LINHA		  EQU 16		; linha a testar (comecamos na 4a linha, mas por causa do shift right inicial inicializamos ao dobro)
-MASCARA		EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
-ENERGIA		EQU	064H	; valor inicial da energia
-SENERGIA	EQU 05H		; valor de energia a subtrair
+DISPLAYS    EQU 0A000H	; endereco dos displays de 7 segmentos (periferico POUT-1)
+TEC_LIN	    EQU 0C000H	; endereco das linhas do teclado (periferico POUT-2)
+TEC_COL     EQU 0E000H	; endereco das colunas do teclado (periferico PIN)
+LINHA       EQU 16      ; linha a testar (comecamos na 4a linha, mas por causa do shift right inicial inicializamos ao dobro)
+MASCARA     EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
+ENERGIA	    EQU 064H	; valor inicial da energia
+SENERGIA    EQU 05H		; valor de energia a subtrair
 
 ; **********************************************************************
 ; * Codigo
