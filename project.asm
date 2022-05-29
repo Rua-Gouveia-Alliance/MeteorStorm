@@ -7,6 +7,7 @@ TEC_LIN	    EQU 0C000H	; endereco das linhas do teclado (periferico POUT-2)
 TEC_COL     EQU 0E000H	; endereco das colunas do teclado (periferico PIN)
 LINHA       EQU 16      ; linha a testar (comecamos na 4a linha, mas por causa do shift right inicial inicializamos ao dobro)
 MASCARA     EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
+TSUB		EQU 011H	; tecla para subtrair a energia
 ENERGIA	    EQU 064H	; valor inicial da energia
 SENERGIA    EQU 05H		; valor de energia a subtrair
 
@@ -22,11 +23,9 @@ inicio:
     MOV	R5, MASCARA		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
     MOV	R6, ENERGIA		; valor inicial da energia
     MOV R7, SENERGIA	; valor de energia a subtrair
-    MOV R8, 011H		; coordenadas da tecla que subtrai a energia
 
 ; corpo principal do programa
 main_loop:
-    MOV  R1, 0
     MOV [R4], R6		; escreve a energia nos displays
 
 espera_tecla:			; neste ciclo espera-se ate uma tecla ser premida
@@ -43,7 +42,8 @@ espera_tecla:			; neste ciclo espera-se ate uma tecla ser premida
     MOV	R9, R1			; guardar o valor da linha
     SHL	R1, 4			; coloca linha no nibble high
     OR	R1, R0			; junta coluna (nibble low)
-    CMP R1, R8			; verifica se carregamos na tecla de mudar energia
+	MOV R0, TSUB		; agora R0 tem as coordenadas da tecla que subtrai a energia
+    CMP R1, R0			; verifica se carregamos na tecla de mudar energia
     JZ muda_energia		; mudar energia caso a tecla tenha sido pressionada
 
 ha_tecla:				; neste ciclo espera-se ate nenhuma tecla estar premida
