@@ -29,7 +29,7 @@ ATRASO      EQU 400H    ; atraso para limitar a velocidade de movimento da nave
 
 NAVE_X      EQU 5       ; largura da nave
 NAVE_Y      EQU 4       ; altura da nave
-YELLOW      EQU 0FF00H  ; cor amarelo em ARGB
+YELLOW      EQU 0FFF0H  ; cor amarelo em ARGB
 RED         EQU 0FF00H  ; cor vermelho em ARGB
 
 ; #######################################################################
