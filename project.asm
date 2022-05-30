@@ -76,7 +76,7 @@ main:
     MOV R2, R8
     CALL desenha_objeto ; desenhar nave
     POP R2
-; executa principais funcoes
+; executa principais funcoes (nota: falta implementar como processos)
     call espera_tecla
 
 espera_tecla:
@@ -95,18 +95,23 @@ loop_espera:
     MOV R9, R1          ; guardar o valor da linha
     SHL R1, 4           ; coloca linha no nibble high
     OR  R1, R0          ; junta coluna (nibble low)
+
     ; caso muda_energia
     MOV R0, TSUB        ; agora R0 tem as coordenadas da tecla que subtrai a energia
     CMP R1, R0          ; verifica se carregamos nessa tecla
     JZ muda_energia     ; efetuar a operacao caso tenha sido pressionada
-    ; caso move_esquerda
+
+    ; caso move para esquerda
     MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
     CMP R1, R0          ; verifica se carregarmos nessa tecla
-    JZ move_esquerda    ; efetuar a operacao caso tenha sido pressionada
-    ; caso move_direita
+    MOV R4, -1          ; prepara argumento para move_nave (-1 para esquerda)
+    JZ move_nave        ; efetuar a operacao caso tenha sido pressionada
+
+    ; caso move para direita
     MOV R0, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move a nave para a direita
-    CMP R1, R0          ; verifica se carregarmos nessa tecla
-    JZ move_direita     ; efetuar a operacao caso tenha sido pressionada
+    CMP R1, R0          ; verifica se carregamos nessa tecla
+    MOV R4, 1           ; prepara argumento para move_nave (1 para direita)
+    JZ move_nave        ; efetuar a operacao caso tenha sido pressionada
 largou:             ; neste ciclo espera-se ate largar a tecla
     MOVB [R2], R9       ; escrever no periferico de saída (linhas)
     MOVB R0, [R3]       ; ler do periferico de entrada (colunas)
@@ -122,49 +127,39 @@ muda_energia:
     SUB R6, R0          ; subtrair energia
     JMP largou          ; espera que a tecla seja largada
 
-move_esquerda:
+move_nave:
 ; move a nave para a esquerda
-;sem argumentos
-    PUSH R2
-    ; verifica se ja esta no canto do ecra
-    MOV R2, R7          ; obtem posicao atual
-    CMP R2, 0           ; verifica se ja esta na posicao mais a esquerda
-    JZ fim_move_esquerda
-    MOV R0, def_nave    ; argumentos da rotina apaga_objeto para nave
-    MOV R1, R7
-    MOV R2, R8
-    CALL apaga_objeto
-    SUB R7, 1           ; recua coluna da nave
-    MOV R0, def_nave    ; argumentos da rotina desenha_objeto para voltar a desenhar a nave
-    MOV R1, R7          
-    MOV R2, R8
-    CALL desenha_objeto
-fim_move_esquerda:
-    POP R2
-    JMP largou          ; espera que a tecla seja largada
-
-move_direita:
-; move a nave para a direita
-;sem argumentos
+;argumentos:
+; R4 -> direcao (1 = direita, -1 = esquerda)
     PUSH R2
     PUSH R3
-    ; verifica se ja esta no canto do ecra
+    CMP R4, 1           ; verifica para que lado se vai mover
+    JZ verificacao_direita
+    ; verifica se ja esta no canto do ecra (esquerda)
+    MOV R2, R7          ; obtem posicao atual
+    CMP R2, 0           ; verifica se ja esta na posicao mais a esquerda
+    JZ fim_move_nave
+    JMP aux_move_nave
+verificacao_direita:
+    ; verifica se ja esta no canto do ecra (direita)
     mov R0, def_nave    ; atributos da nave
     MOV R2, R7          ; obtem posicao atual
     MOV R3, [R0]        ; obtem largura da nave
     ADD R2, R3          ; adiciona largura
     MOV R3, 64          ; largura do ecra
     CMP R2, R3          ; verifica se ja esta na posicao mais a direita
-    JZ fim_move_direita
-    MOV R1, R7          ; argumentos da rotina apaga_objeto para nave
-    MOV R2, R8
-    CALL apaga_objeto
-    ADD R7, 1           ; avanca coluna da nave
-    MOV R0, def_nave    ; argumentos da rotina desenha_objeto para voltar a desenhar a nave
+    JZ fim_move_nave
+aux_move_nave:
+    MOV R0, def_nave    ; argumentos da rotina apaga_objeto para nave
     MOV R1, R7
     MOV R2, R8
-    CALL desenha_objeto
-fim_move_direita:
+    CALL apaga_objeto   ; apagar nave
+    ADD R7, R4          ; atualiza posicao nave
+    MOV R0, def_nave    ; argumentos da rotina desenha_objeto para voltar a desenhar a nave
+    MOV R1, R7          
+    MOV R2, R8
+    CALL desenha_objeto ; desenhar nave
+fim_move_nave:
     POP R3
     POP R2
     JMP largou          ; espera que a tecla seja largada
