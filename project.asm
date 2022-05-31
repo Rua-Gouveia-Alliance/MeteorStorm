@@ -24,17 +24,17 @@ BACKGROUND  EQU 6042H   ; endereco do comando para selecionar uma imagem de fund
 
 MIN_COLUNA  EQU  0      ; número da coluna mais à esquerda que o objeto pode ocupar
 MAX_COLUNA  EQU  63     ; número da coluna mais à direita que o objeto pode ocupar
-ATRASO      EQU 400H    ; atraso para limitar a velocidade de movimento da nave
+DELAY       EQU 1800H   ; atraso para limitar a velocidade de movimento da nave
 
-NAVE_X      EQU 30     ; coluna do boneco
-NAVE_Y      EQU 28     ; linha do boneco
+NAVE_X      EQU 30      ; coluna do boneco
+NAVE_Y      EQU 28      ; linha do boneco
 NAVE_LX     EQU 5       ; largura da nave
 NAVE_LY     EQU 4       ; altura da nave
 
 INIMIGO_X   EQU 20
 INIMIGO_Y   EQU 3
-INIMIGO_LX   EQU 5
-INIMIGO_LY   EQU 5
+INIMIGO_LX  EQU 5
+INIMIGO_LY  EQU 5
 
 YELLOW      EQU 0FFF0H  ; cor amarelo em ARGB
 RED         EQU 0FF00H  ; cor vermelho em ARGB
@@ -131,29 +131,38 @@ loop_espera:
     ; caso move para esquerda
     MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
     CMP R1, R0          ; verifica se carregamos nessa tecla
-    MOV R4, -1          ; prepara argumento para move_nave (-1 para esquerda)
+    MOV R9, -1          ; prepara argumento para move_nave (-1 para esquerda)
     MOV R8, def_nave
-    JZ move_objeto        ; efetuar a operacao caso tenha sido pressionada
+    JZ move_objeto       ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move para direita
     MOV R0, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move a nave para a direita
     CMP R1, R0          ; verifica se carregamos nessa tecla
-    MOV R4, 1           ; prepara argumento para move_nave (1 para direita)
+    MOV R9, 1           ; prepara argumento para move_nave (1 para direita)
     MOV R8, def_nave
-    JZ move_objeto        ; efetuar a operacao caso tenha sido pressionada
+    JZ move_objeto      ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move inimigo para baixo
     MOV R0, TMOVINIM
     CMP R1, R0
     MOV R8, def_inimigo
     JZ move_objeto
-largou:             ; neste ciclo espera-se ate largar a tecla
+largou:                 ; neste ciclo espera-se ate largar a tecla
     MOVB [R2], R9       ; escrever no periferico de saída (linhas)
     MOVB R0, [R3]       ; ler do periferico de entrada (colunas)
     AND  R0, R5         ; elimina bits para além dos bits 0-3
     CMP R0, 0           ; ha tecla premida?
     JNZ largou          ; se ainda houver uma tecla premida repete o loop
     JMP espera_tecla    ; volta ao da funcao
+
+delay:
+	PUSH R0
+    MOV R0, DELAY
+ciclo_delay:
+	SUB R0, 1
+	JNZ	ciclo_delay
+	POP	R0
+	RET
 
 subtrai_energia:
     CMP R6, 0           ; ver se a nossa energia atual ja e o minimo
@@ -180,22 +189,21 @@ muda_energia:
 move_objeto:
 ; move a objeto para a esquerda ou direita
 ;argumentos:
-; R4 -> direcao (1 = direita, -1 = esquerda)
 ; R8 -> endereco da tabela que define os pixeis do objeto
+; R9 -> direcao (1 = direita, -1 = esquerda)
     PUSH R2
     PUSH R3
-    CMP R4, 1           ; verifica para que lado se vai mover
+    CMP R9, 1           ; verifica para que lado se vai mover
     JZ verificacao_direita
-    ; verifica se ja esta no canto do ecra (esquerda)
-    MOV R2, [R8+4]      ; obtem posicao atual
+verificacao_esquerda:
+    MOV R2, [R8]      ; obtem posicao atual
     CMP R2, MIN_COLUNA  ; verifica se ja esta na posicao mais a esquerda
     JZ fim_move_objeto
     JMP aux_move_objeto
 verificacao_direita:
     ; verifica se ja esta no canto do ecra (direita)
-    mov R0, R8          ; atributos da objeto
-    MOV R2, [R8+4]      ; obtem posicao atual
-    MOV R3, [R0]        ; obtem largura da objeto
+    MOV R2, [R8]        ; obtem posicao atual
+    MOV R3, [R8+4]      ; obtem largura da objeto
     ADD R2, R3          ; adiciona largura
     MOV R3, MAX_COLUNA  ; largura do ecra
     CMP R2, R3          ; verifica se ja esta na posicao mais a direita
@@ -203,19 +211,16 @@ verificacao_direita:
 aux_move_objeto:
     MOV R0, R8          ; argumentos da rotina apaga_objeto para objeto
     CALL apaga_objeto   ; apagar objeto
-    MOV R7, [R8]
-    ADD R7, R4
+    MOV R7, [R8]        ; obter coordenada atual
+    ADD R7, R9          ; obter a nova coordenada
     MOV [R8], R7        ; atualiza posicao objeto
     MOV R0, R8          ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
     CALL desenha_objeto ; desenhar objeto
 fim_move_objeto:
     POP R3
     POP R2
-    JMP largou          ; espera que a tecla seja largada
-
-move_meteoro:
-    NOP
-    JMP largou
+    CALL delay          ; delay no movimento
+    JMP espera_tecla    ; volta ao inicio
 
 desenha_objeto:
 ; desenha um objeto
@@ -227,6 +232,7 @@ desenha_objeto:
     PUSH R4
     PUSH R5
     PUSH R6
+    PUSH R7
     MOV R3, [R0 + 4]    ; obtem a largura do objeto
     MOV R4, [R0 + 6]    ; obtem a altura do objeto
     MOV R1, [R0]        ; coluna inicial
@@ -249,6 +255,7 @@ desenha_colunas:        ; desenha os pixels do boneco a partir da tabela
     MOV R1, R5          ; reiniciar as colunas
     CMP R2, R4          ; verificar se ja tratamos da altura toda
     JNZ desenha_colunas ; continuar ate tratar da altura toda
+    POP R7
     POP R6
     POP R5
     POP R4
