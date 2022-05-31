@@ -22,12 +22,15 @@ SEL_PIXEL   EQU 6012H   ; endereco do comando para escrever um pixel
 DEL_AVISO   EQU 6040H   ; endereco do comando para apagar o aviso de nenhum cenario selecionado
 BACKGROUND  EQU 6042H   ; endereco do comando para selecionar uma imagem de fundo
 
-MIN_COLUNA  EQU  0      ; número da coluna mais à esquerda que o objeto pode ocupar
-MAX_COLUNA  EQU  63     ; número da coluna mais à direita que o objeto pode ocupar
+MIN_COLUNA  EQU 0       ; numero da coluna mais a esquerda que o objeto pode ocupar
+MAX_COLUNA  EQU 63      ; numero da coluna mais a direita que o objeto pode ocupar
+MIN_LINHA   EQU 0       ; numero da linha mais acima que o objeto pode ocupar
+MAX_LINHA   EQU 32      ; numero da linha mais abaixo que o objeto pode ocupar
+
 DELAY       EQU 1800H   ; atraso para limitar a velocidade de movimento da nave
 
-NAVE_X      EQU 30      ; coluna do boneco
-NAVE_Y      EQU 28      ; linha do boneco
+NAVE_X      EQU 30      ; coluna da nave
+NAVE_Y      EQU 28      ; linha da nave
 NAVE_LX     EQU 5       ; largura da nave
 NAVE_LY     EQU 4       ; altura da nave
 
@@ -44,8 +47,8 @@ RED         EQU 0FF00H  ; cor vermelho em ARGB
 ; #######################################################################
 PLACE       1000H
 pilha:
-    STACK 100H          ; espaço reservado para a stack
-SP_inicial:             ; este é o endereço com que o SP deve ser inicializado (1200H)
+    STACK 100H          ; espaco reservado para a stack
+SP_inicial:             ; este e o endereço com que o SP deve ser inicializado (1200H)
 
 def_nave:               ; tabela que define a nave (largura, altura e cor dos pixeis)
     WORD    NAVE_X
@@ -57,7 +60,7 @@ def_nave:               ; tabela que define a nave (largura, altura e cor dos pi
     WORD    YELLOW, YELLOW, YELLOW, YELLOW, YELLOW
     WORD    0, YELLOW, 0, YELLOW, 0
 
-def_inimigo:
+def_inimigo:            ; tabela que define o inimigo (largura, altura e cor dos pixeis)
     WORD    INIMIGO_X
     WORD    INIMIGO_Y
     WORD    INIMIGO_LX
@@ -130,22 +133,23 @@ loop_espera:
 
     ; caso move para esquerda
     MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
-    CMP R1, R0          ; verifica se carregamos nessa tecla
     MOV R9, -1          ; prepara argumento para move_nave (-1 para esquerda)
     MOV R8, def_nave
+    CMP R1, R0           ; verifica se carregamos nessa tecla
     JZ move_objeto       ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move para direita
     MOV R0, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move a nave para a direita
-    CMP R1, R0          ; verifica se carregamos nessa tecla
     MOV R9, 1           ; prepara argumento para move_nave (1 para direita)
     MOV R8, def_nave
+    CMP R1, R0          ; verifica se carregamos nessa tecla
     JZ move_objeto      ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move inimigo para baixo
     MOV R0, TMOVINIM
-    CMP R1, R0
+    MOV R9, 2           ; prepara argumento para move_nave (2 para baixo)
     MOV R8, def_inimigo
+    CMP R1, R0
     JZ move_objeto
 largou:                 ; neste ciclo espera-se ate largar a tecla
     MOVB [R2], R9       ; escrever no periferico de saída (linhas)
@@ -190,30 +194,53 @@ move_objeto:
 ; move a objeto para a esquerda ou direita
 ;argumentos:
 ; R8 -> endereco da tabela que define os pixeis do objeto
-; R9 -> direcao (1 = direita, -1 = esquerda)
+; R9 -> direcao (1 = direita, -1 = esquerda, -2 = cima, 2 = baixo)
     PUSH R2
     PUSH R3
-    CMP R9, 1           ; verifica para que lado se vai mover
+    ; verificar para que lado se vai mover
+    CMP R9, 1
     JZ verificacao_direita
+    CMP R9, 2
+    JZ verificacao_baixo
 verificacao_esquerda:
-    MOV R2, [R8]      ; obtem posicao atual
+    MOV R2, [R8]        ; obtem posicao atual
     CMP R2, MIN_COLUNA  ; verifica se ja esta na posicao mais a esquerda
     JZ fim_move_objeto
-    JMP aux_move_objeto
+    JMP move_x
 verificacao_direita:
     ; verifica se ja esta no canto do ecra (direita)
     MOV R2, [R8]        ; obtem posicao atual
-    MOV R3, [R8+4]      ; obtem largura da objeto
+    MOV R3, [R8+4]      ; obtem largura da nave
     ADD R2, R3          ; adiciona largura
     MOV R3, MAX_COLUNA  ; largura do ecra
     CMP R2, R3          ; verifica se ja esta na posicao mais a direita
-    JGT fim_move_objeto
-aux_move_objeto:
+    JZ fim_move_objeto
+    JMP move_x
+verificacao_baixo:
+; meter aqui codigo que remove da tabela de objetos caso objeto avance pa fora
+    MOV R2, [R8+2]      ; obtem posicao atual
+    MOV R3, [R8+6]      ; obtem altura da nave
+    ADD R2, R3          ; adiciona altura
+    MOV R3, MAX_LINHA   ; altura do ecra
+    CMP R2, R3          ; verifica se ja esta na posicao mais a baixo
+    JZ fim_move_objeto
+    JMP move_y
+move_x:
     MOV R0, R8          ; argumentos da rotina apaga_objeto para objeto
     CALL apaga_objeto   ; apagar objeto
     MOV R7, [R8]        ; obter coordenada atual
     ADD R7, R9          ; obter a nova coordenada
     MOV [R8], R7        ; atualiza posicao objeto
+    MOV R0, R8          ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
+    CALL desenha_objeto ; desenhar objeto
+    JMP fim_move_objeto ; terminar
+move_y:
+    SHRA R9, 1          ; dividir por 2 o argumento preservando o sinal
+    MOV R0, R8          ; argumentos da rotina apaga_objeto para objeto
+    CALL apaga_objeto   ; apagar objeto
+    MOV R7, [R8+2]      ; obter coordenada atual
+    ADD R7, R9          ; obter a nova coordenada
+    MOV [R8+2], R7      ; atualiza posicao objeto
     MOV R0, R8          ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
     CALL desenha_objeto ; desenhar objeto
 fim_move_objeto:
