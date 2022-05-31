@@ -8,6 +8,7 @@ TEC_COL     EQU 0E000H  ; endereco das colunas do teclado (periferico PIN)
 LINHA_TEST  EQU 16      ; linha a testar (comecamos na 4a linha, mas por causa do shift right inicial inicializamos ao dobro)
 MASCARA     EQU 0FH     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 TSUB        EQU 00010001b ; tecla para subtrair a energia
+TADD        EQU 00010010b ; tecla para adicionar a energia
 TMOVESQ     EQU 10000001b ; tecla para mover nave para a esquerda
 TMOVDIR     EQU 10000100b ; tecla para mover nave para a direita
 
@@ -96,10 +97,15 @@ loop_espera:
     SHL R1, 4           ; coloca linha no nibble high
     OR  R1, R0          ; junta coluna (nibble low)
 
-    ; caso muda_energia
+    ; caso subtrai_energia
     MOV R0, TSUB        ; agora R0 tem as coordenadas da tecla que subtrai a energia
     CMP R1, R0          ; verifica se carregamos nessa tecla
-    JZ muda_energia     ; efetuar a operacao caso tenha sido pressionada
+    JZ subtrai_energia  ; efetuar a operacao caso tenha sido pressionada
+
+    ; caso adiciona_energia
+    MOV R0, TADD        ; agora R0 tem as coordenadas da tecla que adiciona a energia
+    CMP R1, R0          ; verifica se carregamos nessa tecla
+    JZ adiciona_energia ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move para esquerda
     MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
@@ -120,11 +126,26 @@ largou:             ; neste ciclo espera-se ate largar a tecla
     JNZ largou          ; se ainda houver uma tecla premida repete o loop
     JMP espera_tecla    ; volta ao da funcao
 
+subtrai_energia:
+    CMP R6, 0           ; ver se a nossa energia atual ja e o minimo
+    JZ largou           ; caso seja o minimo nao fazemos nada
+    MOV R0, -1          ; -1 porque queremos que muda_energia subtraia
+    JMP muda_energia    ; mudar a energia
+
+adiciona_energia:
+    MOV R0, ENERGIA     ; valor maximo de energia
+    CMP R6, R0          ; ver se a nossa energia atual ja e o maximo
+    JZ largou           ; caso seja o maximo nao fazemos nada
+    MOV R0, 1           ; 1 porque queremos que muda_energia adicione
+    JMP muda_energia    ; mudar a energia
+
 muda_energia:
-; subtrai energia
-;sem argumentos
-    MOV R0, SENERGIA    ; valor a subtrair
-    SUB R6, R0          ; subtrair energia
+; muda o valor da energia no display
+; R0 -> -1 ou 1 consoante vamos subtrair ou adicionar energia
+    MOV R1, SENERGIA    ; valor a subtrair
+    MUL R1, R0          ; R1 vai ser -1 ou 1 consoante queremos aumentar ou diminuir
+    ADD R6, R1          ; subtrair ou aumentar energia
+    MOV [R4], R6        ; atualiza a energia nos displays
     JMP largou          ; espera que a tecla seja largada
 
 move_nave:
@@ -156,7 +177,7 @@ aux_move_nave:
     CALL apaga_objeto   ; apagar nave
     ADD R7, R4          ; atualiza posicao nave
     MOV R0, def_nave    ; argumentos da rotina desenha_objeto para voltar a desenhar a nave
-    MOV R1, R7          
+    MOV R1, R7
     MOV R2, R8
     CALL desenha_objeto ; desenhar nave
 fim_move_nave:
