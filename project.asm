@@ -7,6 +7,7 @@ TEC_LIN     EQU 0C000H  ; endereco das linhas do teclado (periferico POUT-2)
 TEC_COL     EQU 0E000H  ; endereco das colunas do teclado (periferico PIN)
 LINHA_TEST  EQU 16      ; linha a testar (comecamos na 4a linha, mas por causa do shift right inicial inicializamos ao dobro)
 MASCARA     EQU 0FH     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
+TSTART      EQU 10000001b ; tecla para comecar o jogo
 TSUB        EQU 00010001b ; tecla para subtrair a energia
 TADD        EQU 00010010b ; tecla para adicionar a energia
 TMOVESQ     EQU 10000001b ; tecla para mover nave para a esquerda
@@ -17,11 +18,17 @@ MAX_ENERGIA EQU 064H    ; valor inicial da energia e maximo
 MIN_ENERGIA EQU 0       ; valor minimo da energia
 SENERGIA    EQU 05H     ; maximo divisor comum do valor de energia a subtrair e adicionar
 
+HOME        EQU 0       ; estado em que o jogo esta (home screen)
+JOGO        EQU 1       ; estado em que o jogo esta (a ser jogado)
+
 SEL_LINHA   EQU 600AH   ; endereco do comando para definir a linha
 SEL_COLUNA  EQU 600CH   ; endereco do comando para definir a coluna
 SEL_PIXEL   EQU 6012H   ; endereco do comando para escrever um pixel
 DEL_AVISO   EQU 6040H   ; endereco do comando para apagar o aviso de nenhum cenario selecionado
 BACKGROUND  EQU 6042H   ; endereco do comando para selecionar uma imagem de fundo
+
+TIRO        EQU 0       ; som do tiro
+PLAY_SOM    EQU 605AH   ; endereco do comando para reproduzir um som
 
 MIN_COLUNA  EQU 0       ; numero da coluna mais a esquerda que o objeto pode ocupar
 MAX_COLUNA  EQU 63      ; numero da coluna mais a direita que o objeto pode ocupar
@@ -84,28 +91,16 @@ inicio:
     MOV R4, DISPLAYS    ; endereco do periferico dos displays
     MOV R5, MASCARA     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
     MOV R6, MAX_ENERGIA ; valor inicial da energia
+    MOV R8, HOME        ; comecamos o jogo no home screen
     ; R7 -> auxiliar para passar argumentos
 
 ; corpo principal do programa
 main:
 ; setup inicial do ecra
-    CALL hex_to_dec_representation
-    MOV [R4], R0        ; escreve a energia nos displays
     MOV [DEL_AVISO], R0 ; apaga o aviso de nenhum cenario selecionado
-    MOV R0, 0           ; cenário de fundo numero 0
-    MOV [BACKGROUND], R0; seleciona o cenario de fundo
+    MOV R7, 0           ; cenario de fundo numero 0
+    MOV [BACKGROUND], R7; seleciona o cenario de fundo
 
-    ; nave
-    MOV R7, def_nave
-    PUSH R7             ; argumentos da rotina desenha_objeto para nave inicial
-    CALL desenha_objeto ; desenhar nave
-    POP R7              ; POP ao argumento
-
-    ; inimigo
-    MOV R7, def_inimigo
-    PUSH R7             ; argumentos da rotinha desenha_objeto para inimigo inicial
-    CALL desenha_objeto ; desenhar inimigo
-    POP R7              ; POP ao argumento
 
 ; executa principais funcoes (nota: falta implementar como processos)
     CALL espera_tecla
@@ -126,7 +121,17 @@ loop_espera:
     MOV R9, R1          ; guardar o valor da linha
     SHL R1, 4           ; coloca linha no nibble high
     OR  R1, R0          ; junta coluna (nibble low)
+    CMP R8, HOME        ; estamos no home screen?
+    JZ home
+    CMP R8, JOGO        ; estamos a jogar o jogo?
+    JZ jogo
 
+home:
+    MOV R0, TSTART
+    CMP R1, R0
+    JZ comecar_jogo
+    JMP espera_tecla
+jogo:
     ; caso subtrai_energia
     MOV R0, TSUB        ; agora R0 tem as coordenadas da tecla que subtrai a energia
     MOV R7, -1          ; -1 porque queremos que muda_energia subtraia
@@ -175,6 +180,7 @@ loop_espera:
     JZ move_objeto
     POP R7
     POP R7
+
 largou:                 ; neste ciclo espera-se ate largar a tecla
     MOVB [R2], R9       ; escrever no periferico de saída (linhas)
     MOVB R0, [R3]       ; ler do periferico de entrada (colunas)
@@ -191,6 +197,25 @@ ciclo_delay:
 	JNZ	ciclo_delay
 	POP	R0
 	RET
+
+comecar_jogo:
+; muda o background e o estado do jogo
+    MOV R8, JOGO        ; atualizar o estado do jogo
+    CALL hex_to_dec_representation
+    MOV [R4], R0        ; escreve a energia nos displays
+
+    ; nave
+    MOV R7, def_nave
+    PUSH R7             ; argumentos da rotina desenha_objeto para nave inicial
+    CALL desenha_objeto ; desenhar nave
+    POP R7              ; POP ao argumento
+
+    ; inimigo
+    MOV R7, def_inimigo
+    PUSH R7             ; argumentos da rotinha desenha_objeto para inimigo inicial
+    CALL desenha_objeto ; desenhar inimigo
+    POP R7              ; POP ao argumento
+    JMP espera_tecla
 
 muda_energia:
 ; muda o valor da energia no display
@@ -328,9 +353,19 @@ move_y:
     MOV R7, [R0+2]      ; obter coordenada atual
     ADD R7, R1          ; obter a nova coordenada
     MOV [R0+2], R7      ; atualiza posicao objeto
-    PUSH R0          ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
+    PUSH R0             ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
     CALL desenha_objeto ; desenhar objeto
     POP R7
+    MOV R7, PLAY_SOM    ; endereco do comando para reproduzir som
+    MOV R0, TIRO        ; som a reproduzir
+    MOV [R7], R0
+    POP R3
+    POP R2
+    POP R1
+    POP R0
+    POP R7
+    POP R7
+    JMP largou
 fim_move_objeto:
     POP R3
     POP R2
