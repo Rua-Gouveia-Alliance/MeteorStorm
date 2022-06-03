@@ -92,7 +92,6 @@ main:
     MOV [DEL_AVISO], R0 ; apaga o aviso de nenhum cenario selecionado
     MOV R0, 0           ; cenário de fundo numero 0
     MOV [BACKGROUND], R0; seleciona o cenario de fundo
-    PUSH R2
 
     ; nave
     MOV R7, def_nave
@@ -144,6 +143,8 @@ loop_espera:
     PUSH R7
     CMP R1, R0           ; verifica se carregamos nessa tecla
     JZ move_objeto       ; efetuar a operacao caso tenha sido pressionada
+    POP R7
+    POP R7
 
     ; caso move para direita
     MOV R0, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move a nave para a direita
@@ -153,6 +154,8 @@ loop_espera:
     PUSH R7
     CMP R1, R0          ; verifica se carregamos nessa tecla
     JZ move_objeto      ; efetuar a operacao caso tenha sido pressionada
+    POP R7
+    POP R7
 
     ; caso move inimigo para baixo
     MOV R0, TMOVINIM
@@ -162,6 +165,8 @@ loop_espera:
     PUSH R7
     CMP R1, R0
     JZ move_objeto
+    POP R7
+    POP R7
 largou:                 ; neste ciclo espera-se ate largar a tecla
     MOVB [R2], R9       ; escrever no periferico de saída (linhas)
     MOVB R0, [R3]       ; ler do periferico de entrada (colunas)
