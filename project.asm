@@ -218,7 +218,7 @@ fim_muda_energia:
 
 hex_to_dec_representation:
 ; muda o valor hexadecimal para a sua representacao em binario
-;argumentos (stack):
+;argumentos (registos):
 ; R6 -> numero hexadecimal original
 ;valor retornado
 ; R0 -> numero final na representacao correta
@@ -229,33 +229,33 @@ hex_to_dec_representation:
     PUSH R5
     PUSH R7
     PUSH R8
-    MOV R7, 0
-    MOV R0, 00H
-    MOV R1, 0AH 
-    MOV R2, R6      ; R2 = num
+    MOV R7, 0       ; inicializar numero de algarismos
+    MOV R0, 00H     ; inicializar resultado
+    MOV R1, 0AH     ; numero 10 para divisao
+    MOV R2, R6      ; guardar valor inicial
 ciclo_hex_to_dec:
-    ADD R7, 1
-    MOV R3, R2      ; R3 = num
+    ADD R7, 1       ; contar numero de algarismos
+    MOV R3, R2      ; R3 = R2
     DIV R3, R1      ; R3 = R3/10
     MOV R4, R2      ; R4 = R2
     MOV R2, R3      ; R2 = R3
     MUL R3, R1      ; R3 = R3*10
-    SUB R4, R3      ; R4 = num - R3
+    SUB R4, R3      ; R4 = R4 - R3
     SHR R0, 4       ; R0 << 4
     MOV R5, MASCARA
-    AND R4, R5      ; R4 && 000F
+    AND R4, R5      ; R4 & 000F
     SHL R4, 8       ; R4 << 8
-    OR R0, R4
-    CMP R2, 0
+    OR R0, R4       ; R0 = R0 | R4
+    CMP R2, 0       ; verificar se chegou ao fim
     JNZ ciclo_hex_to_dec
-    CMP R7, 3
+    CMP R7, 3       ; verificar se ocupa os 3 digitos do display (se nao deu temos de dar SHR)
     JZ fim_hex_to_dec
     MOV R8, 3
     SUB R8, R7
     MOV R7, 4
-    MUL R8, R7
+    MUL R8, R7      ; R8 = 4*(numero de digitos)
 ciclo_hex_to_dec_shr:
-    SHR R0, 1
+    SHR R0, 1       ; SHR R8 numero de vezes
     SUB R8, 1
     CMP R8, 0
     JNZ ciclo_hex_to_dec_shr
