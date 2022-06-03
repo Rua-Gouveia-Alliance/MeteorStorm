@@ -23,9 +23,9 @@ DEL_AVISO   EQU 6040H   ; endereco do comando para apagar o aviso de nenhum cena
 BACKGROUND  EQU 6042H   ; endereco do comando para selecionar uma imagem de fundo
 
 MIN_COLUNA  EQU 0       ; numero da coluna mais a esquerda que o objeto pode ocupar
-MAX_COLUNA  EQU 64      ; numero da coluna mais a direita que o objeto pode ocupar
+MAX_COLUNA  EQU 63      ; numero da coluna mais a direita que o objeto pode ocupar
 MIN_LINHA   EQU 0       ; numero da linha mais acima que o objeto pode ocupar
-MAX_LINHA   EQU 32      ; numero da linha mais abaixo que o objeto pode ocupar
+MAX_LINHA   EQU 31      ; numero da linha mais abaixo que o objeto pode ocupar
 
 DELAY       EQU 1800H   ; atraso para limitar a velocidade de movimento da nave
 
@@ -47,7 +47,7 @@ RED         EQU 0FF00H  ; cor vermelho em ARGB
 ; #######################################################################
 PLACE       1000H
 pilha:
-    STACK 100H          ; espaco reservado para a stack
+    STACK 100H         ; espaco reservado para a stack
 SP_inicial:             ; este e o endereço com que o SP deve ser inicializado (1200H)
 
 def_nave:               ; tabela que define a nave (largura, altura e cor dos pixeis)
@@ -138,22 +138,28 @@ loop_espera:
 
     ; caso move para esquerda
     MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
-    MOV R9, -1          ; prepara argumento para move_nave (-1 para esquerda)
-    MOV R8, def_nave
+    MOV R7, def_nave
+    PUSH R7
+    MOV R7, -1          ; prepara argumento para move_nave (-1 para esquerda)
+    PUSH R7
     CMP R1, R0           ; verifica se carregamos nessa tecla
     JZ move_objeto       ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move para direita
     MOV R0, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move a nave para a direita
-    MOV R9, 1           ; prepara argumento para move_nave (1 para direita)
-    MOV R8, def_nave
+    MOV R7, def_nave
+    PUSH R7
+    MOV R7, 1          ; prepara argumento para move_nave (-1 para esquerda)
+    PUSH R7
     CMP R1, R0          ; verifica se carregamos nessa tecla
     JZ move_objeto      ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move inimigo para baixo
     MOV R0, TMOVINIM
-    MOV R9, 2           ; prepara argumento para move_nave (2 para baixo)
-    MOV R8, def_inimigo
+    MOV R7, def_inimigo
+    PUSH R7
+    MOV R7, 2          ; prepara argumento para move_nave (-1 para esquerda)
+    PUSH R7
     CMP R1, R0
     JZ move_objeto
 largou:                 ; neste ciclo espera-se ate largar a tecla
@@ -176,81 +182,101 @@ ciclo_delay:
 subtrai_energia:
     CMP R6, 0           ; ver se a nossa energia atual ja e o minimo
     JZ largou           ; caso seja o minimo nao fazemos nada
-    MOV R0, -1          ; -1 porque queremos que muda_energia subtraia
+    MOV R7, -1          ; -1 porque queremos que muda_energia subtraia
+    PUSH R7             ; argumentos para muda_energia
     JMP muda_energia    ; mudar a energia
 
 adiciona_energia:
     MOV R0, ENERGIA     ; valor maximo de energia
     CMP R6, R0          ; ver se a nossa energia atual ja e o maximo
     JZ largou           ; caso seja o maximo nao fazemos nada
-    MOV R0, 1           ; 1 porque queremos que muda_energia adicione
+    MOV R7, 1           ; 1 porque queremos que muda_energia adicione
+    PUSH R7             ; argumentos para muda_energia
     JMP muda_energia    ; mudar a energia
 
 muda_energia:
 ; muda o valor da energia no display
-; R0 -> -1 ou 1 consoante vamos subtrair ou adicionar energia
+;argumentos (stack):
+; 1 -> -1 ou 1 consoante vamos subtrair ou adicionar energia
+    PUSH R0
+    MOV R0, [SP+2]      ; argumentos
     MOV R1, SENERGIA    ; valor a subtrair
     MUL R1, R0          ; R1 vai ser -1 ou 1 consoante queremos aumentar ou diminuir
     ADD R6, R1          ; subtrair ou aumentar energia
     MOV [R4], R6        ; atualiza a energia nos displays
+    POP R0
+    POP R7
     JMP largou          ; espera que a tecla seja largada
 
 move_objeto:
 ; move a objeto para a esquerda ou direita
-;argumentos:
-; R8 -> endereco da tabela que define os pixeis do objeto
-; R9 -> direcao (1 = direita, -1 = esquerda, -2 = cima, 2 = baixo)
+;argumentos (stack):
+; 1 -> endereco da tabela que define os pixeis do objeto
+; 2 -> direcao (1 = direita, -1 = esquerda, -2 = cima, 2 = baixo)
+    PUSH R0
+    MOV R0, [SP+4]
+    PUSH R1
+    MOV R1, [SP+4]
     PUSH R2
     PUSH R3
     ; verificar para que lado se vai mover
-    CMP R9, 1
+    CMP R1, 1
     JZ verificacao_direita
-    CMP R9, 2
+    CMP R1, 2
     JZ verificacao_baixo
 verificacao_esquerda:
-    MOV R2, [R8]        ; obtem posicao atual
+    MOV R2, [R0]        ; obtem posicao atual
     CMP R2, MIN_COLUNA  ; verifica se ja esta na posicao mais a esquerda
     JZ fim_move_objeto
     JMP move_x
 verificacao_direita:
     ; verifica se ja esta no canto do ecra (direita)
-    MOV R2, [R8]        ; obtem posicao atual
-    MOV R3, [R8+4]      ; obtem largura da nave
+    MOV R2, [R0]        ; obtem posicao atual
+    MOV R3, [R0+4]      ; obtem largura da nave
     ADD R2, R3          ; adiciona largura
     MOV R3, MAX_COLUNA  ; largura do ecra
     CMP R2, R3          ; verifica se ja esta na posicao mais a direita
-    JZ fim_move_objeto
+    JGT fim_move_objeto ; se ja estiver nao se mexe
     JMP move_x
 verificacao_baixo:
 ; meter aqui codigo que remove da tabela de objetos caso objeto avance pa fora
-
-    JMP move_y
+    MOV R2, [R0+2]      ; obtem posicao atual
+    MOV R3, MAX_LINHA   ; limite maximo da linha
+    CMP R2, R3          ; ver se nao execedemos o limite
+    JLT move_y          ; se nao excedemos continuamos normalmente
+    PUSH R0             ; se excedemos so vamos querer apagar o objeto
     CALL apaga_objeto
+    POP R7              ; corrigir a stack
+    JMP fim_move_objeto
 move_x:
-    PUSH R8             ; argumentos da rotina apaga_objeto para objeto
+    PUSH R0             ; argumentos da rotina apaga_objeto para objeto
     CALL apaga_objeto   ; apagar objeto
     POP R7              ; POP ao argumento
-    MOV R7, [R8]        ; obter coordenada atual
-    ADD R7, R9          ; obter a nova coordenada
-    MOV [R8], R7        ; atualiza posicao objeto
-    PUSH R8             ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
+    MOV R7, [R0]        ; obter coordenada atual
+    ADD R7, R1          ; obter a nova coordenada
+    MOV [R0], R7        ; atualiza posicao objeto
+    PUSH R0             ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
     CALL desenha_objeto ; desenhar objeto
     POP R7              ; POP ao argumento
     JMP fim_move_objeto ; terminar
 move_y:
-    SHRA R9, 1          ; dividir por 2 o argumento preservando o sinal
-    PUSH R8             ; argumentos da rotina apaga_objeto para objeto
+    SHRA R1, 1          ; dividir por 2 o argumento preservando o sinal
+    PUSH R0             ; argumentos da rotina apaga_objeto para objeto
     CALL apaga_objeto   ; apagar objeto
     POP R7
-    MOV R7, [R8+2]      ; obter coordenada atual
-    ADD R7, R9          ; obter a nova coordenada
-    MOV [R8+2], R7      ; atualiza posicao objeto
-    PUSH R8          ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
+    MOV R7, [R0+2]      ; obter coordenada atual
+    ADD R7, R1          ; obter a nova coordenada
+    MOV [R0+2], R7      ; atualiza posicao objeto
+    PUSH R0          ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
     CALL desenha_objeto ; desenhar objeto
     POP R7
 fim_move_objeto:
     POP R3
     POP R2
+    POP R1
+    POP R0
+    POP R7
+    POP R7
     CALL delay          ; delay no movimento
     JMP espera_tecla    ; volta ao inicio
 
