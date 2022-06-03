@@ -201,7 +201,8 @@ ciclo_delay:
 comecar_jogo:
 ; muda o background e o estado do jogo
     MOV R8, JOGO        ; atualizar o estado do jogo
-    MOV [R4], R6        ; escreve a energia nos displays
+    CALL hex_to_dec_representation
+    MOV [R4], R0        ; escreve a energia nos displays
 
     ; nave
     MOV R7, def_nave
@@ -234,10 +235,64 @@ verifica_negativo:
     JGE fim_muda_energia
     MOV R6, MIN_ENERGIA
 fim_muda_energia:
-    MOV [R4], R6        ; atualiza a energia nos displays
+    CALL hex_to_dec_representation
+    MOV [R4], R0        ; atualiza a energia nos displays
     POP R0
     POP R7
     JMP largou          ; espera que a tecla seja largada
+
+hex_to_dec_representation:
+; muda o valor hexadecimal para a sua representacao em binario
+;argumentos (stack):
+; R6 -> numero hexadecimal original
+;valor retornado
+; R0 -> numero final na representacao correta
+    PUSH R1
+    PUSH R2
+    PUSH R3
+    PUSH R4
+    PUSH R5
+    PUSH R7
+    PUSH R8
+    MOV R7, 0
+    MOV R0, 00H
+    MOV R1, 0AH
+    MOV R2, R6      ; R2 = num
+ciclo_hex_to_dec:
+    ADD R7, 1
+    MOV R3, R2      ; R3 = num
+    DIV R3, R1      ; R3 = R3/10
+    MOV R4, R2      ; R4 = R2
+    MOV R2, R3      ; R2 = R3
+    MUL R3, R1      ; R3 = R3*10
+    SUB R4, R3      ; R4 = num - R3
+    SHR R0, 4       ; R0 << 4
+    MOV R5, MASCARA
+    AND R4, R5      ; R4 && 000F
+    SHL R4, 8       ; R4 << 8
+    OR R0, R4
+    CMP R2, 0
+    JNZ ciclo_hex_to_dec
+    CMP R7, 3
+    JZ fim_hex_to_dec
+    MOV R8, 3
+    SUB R8, R7
+    MOV R7, 4
+    MUL R8, R7
+ciclo_hex_to_dec_shr:
+    SHR R0, 1
+    SUB R8, 1
+    CMP R8, 0
+    JNZ ciclo_hex_to_dec_shr
+fim_hex_to_dec:
+    POP R8
+    POP R7
+    POP R5
+    POP R4
+    POP R3
+    POP R2
+    POP R1
+    RET
 
 move_objeto:
 ; move a objeto para a esquerda ou direita
