@@ -38,7 +38,7 @@ MAX_COLUNA  EQU 63      ; numero da coluna mais a direita que o objeto pode ocup
 MIN_LINHA   EQU 0       ; numero da linha mais acima que o objeto pode ocupar
 MAX_LINHA   EQU 31      ; numero da linha mais abaixo que o objeto pode ocupar
 
-DELAY       EQU 1800H   ; atraso para limitar a velocidade de movimento da nave
+DELAY       EQU 2000H   ; atraso para limitar a velocidade de movimento da nave
 
 NAVE_X      EQU 30      ; coluna da nave
 NAVE_Y      EQU 28      ; linha da nave
@@ -133,6 +133,7 @@ loop_espera:
     JZ jogo
 
 home:
+    ; premir c para comecar
     MOV R0, TSTART
     CMP R1, R0
     JZ comecar_jogo
@@ -196,6 +197,9 @@ largou:                 ; neste ciclo espera-se ate largar a tecla
     JMP espera_tecla    ; volta ao da funcao
 
 delay:
+; esta rotina e usada para controlar
+; a velocidade de cliques continuos
+;nao recebe argumentos
 	PUSH R0
     MOV R0, DELAY
 ciclo_delay:
@@ -205,12 +209,12 @@ ciclo_delay:
 	RET
 
 comecar_jogo:
-; muda o background e o estado do jogo
+; prepara o inicio do jogo
     MOV R7, BACKGROUND_JOGO     ; cenario de fundo do jogo
     MOV [BACKGROUND], R7        ; seleciona o cenario de fundo
 
     MOV R8, JOGO        ; atualizar o estado do jogo
-    CALL hex_to_dec_representation
+    CALL hex_p_dec_representacao
     MOV [R4], R0        ; escreve a energia nos displays
 
     ; nave
@@ -244,13 +248,13 @@ verifica_negativo:
     JGE fim_muda_energia
     MOV R6, MIN_ENERGIA
 fim_muda_energia:
-    CALL hex_to_dec_representation
+    CALL hex_p_dec_representacao
     MOV [R4], R0        ; atualiza a energia nos displays
     POP R0
     POP R7
     JMP largou          ; espera que a tecla seja largada
 
-hex_to_dec_representation:
+hex_p_dec_representacao:
 ; muda o valor hexadecimal para a sua representacao em binario
 ;argumentos (registos):
 ; R6 -> numero hexadecimal original
@@ -266,8 +270,8 @@ hex_to_dec_representation:
     MOV R7, 0       ; inicializar numero de algarismos
     MOV R0, 00H     ; inicializar resultado
     MOV R1, 0AH     ; numero 10 para divisao
-    MOV R2, R6      ; guardar valor inicial
-ciclo_hex_to_dec:
+    MOV R2, R6      ; copiar o valor inicial
+ciclo_hex_p_dec:
     ADD R7, 1       ; contar numero de algarismos
     MOV R3, R2      ; R3 = R2
     DIV R3, R1      ; R3 = R3/10
@@ -281,19 +285,19 @@ ciclo_hex_to_dec:
     SHL R4, 8       ; R4 << 8
     OR R0, R4       ; R0 = R0 | R4
     CMP R2, 0       ; verificar se chegou ao fim
-    JNZ ciclo_hex_to_dec
+    JNZ ciclo_hex_p_dec
     CMP R7, 3       ; verificar se ocupa os 3 digitos do display (se nao deu temos de dar SHR)
-    JZ fim_hex_to_dec
+    JZ fim_hex_p_dec
     MOV R8, 3
     SUB R8, R7
     MOV R7, 4
     MUL R8, R7      ; R8 = 4*(numero de digitos)
-ciclo_hex_to_dec_shr:
+ciclo_hex_p_dec_shr:
     SHR R0, 1       ; SHR R8 numero de vezes
     SUB R8, 1
     CMP R8, 0
-    JNZ ciclo_hex_to_dec_shr
-fim_hex_to_dec:
+    JNZ ciclo_hex_p_dec_shr
+fim_hex_p_dec:
     POP R8
     POP R7
     POP R5
