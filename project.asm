@@ -102,7 +102,7 @@ main:
     CALL desenha_objeto ; desenhar inimigo
 
 ; executa principais funcoes (nota: falta implementar como processos)
-    call espera_tecla
+    CALL espera_tecla
 
 espera_tecla:
 ; espera uma tecla ser premida e executa a funcao correspondente
@@ -218,13 +218,9 @@ verificacao_direita:
     JMP move_x
 verificacao_baixo:
 ; meter aqui codigo que remove da tabela de objetos caso objeto avance pa fora
-    MOV R2, [R8+2]      ; obtem posicao atual
-    MOV R3, [R8+6]      ; obtem altura da nave
-    ADD R2, R3          ; adiciona altura
-    MOV R3, MAX_LINHA   ; altura do ecra
-    CMP R2, R3          ; verifica se ja esta na posicao mais a baixo
-    JZ fim_move_objeto
+
     JMP move_y
+    CALL apaga_objeto
 move_x:
     MOV R0, R8          ; argumentos da rotina apaga_objeto para objeto
     CALL apaga_objeto   ; apagar objeto
