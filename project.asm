@@ -20,7 +20,10 @@ SENERGIA    EQU 05H     ; maximo divisor comum do valor de energia a subtrair e 
 
 HOME        EQU 0       ; estado em que o jogo esta (home screen)
 JOGO        EQU 1       ; estado em que o jogo esta (a ser jogado)
+BACKGROUND_JOGO EQU 0   ; imagem de fundo do jogo
+BACKGROUND_HOME EQU 1   ; imagem de fundo do home screen
 
+DEL_ECRAS   EQU 6002H   ; endereco do comando para apagar todos os ecras
 SEL_LINHA   EQU 600AH   ; endereco do comando para definir a linha
 SEL_COLUNA  EQU 600CH   ; endereco do comando para definir a coluna
 SEL_PIXEL   EQU 6012H   ; endereco do comando para escrever um pixel
@@ -42,10 +45,10 @@ NAVE_Y      EQU 28      ; linha da nave
 NAVE_LX     EQU 5       ; largura da nave
 NAVE_LY     EQU 4       ; altura da nave
 
-INIMIGO_X   EQU 20
-INIMIGO_Y   EQU 3
-INIMIGO_LX  EQU 5
-INIMIGO_LY  EQU 5
+INIMIGO_X   EQU 20      ; coluna do inimigo
+INIMIGO_Y   EQU 3       ; linha do inimigo
+INIMIGO_LX  EQU 5       ; largura do inimigo
+INIMIGO_LY  EQU 5       ; altura do inimigo
 
 YELLOW      EQU 0FFF0H  ; cor amarelo em ARGB
 RED         EQU 0FF00H  ; cor vermelho em ARGB
@@ -97,10 +100,13 @@ inicio:
 ; corpo principal do programa
 main:
 ; setup inicial do ecra
-    MOV [DEL_AVISO], R0 ; apaga o aviso de nenhum cenario selecionado
-    MOV R7, 0           ; cenario de fundo numero 0
-    MOV [BACKGROUND], R7; seleciona o cenario de fundo
+    MOV [DEL_ECRAS], R0
+    MOV [DEL_AVISO], R0         ; apaga o aviso de nenhum cenario selecionado
+    MOV R7, BACKGROUND_HOME     ; cenario de fundo do home
+    MOV [BACKGROUND], R7        ; seleciona o cenario de fundo
 
+    MOV R7, 0
+    MOV [R4], R7                ; setup inicial do display
 
 ; executa principais funcoes (nota: falta implementar como processos)
     CALL espera_tecla
@@ -200,6 +206,9 @@ ciclo_delay:
 
 comecar_jogo:
 ; muda o background e o estado do jogo
+    MOV R7, BACKGROUND_JOGO     ; cenario de fundo do jogo
+    MOV [BACKGROUND], R7        ; seleciona o cenario de fundo
+
     MOV R8, JOGO        ; atualizar o estado do jogo
     CALL hex_to_dec_representation
     MOV [R4], R0        ; escreve a energia nos displays
@@ -215,7 +224,7 @@ comecar_jogo:
     PUSH R7             ; argumentos da rotinha desenha_objeto para inimigo inicial
     CALL desenha_objeto ; desenhar inimigo
     POP R7              ; POP ao argumento
-    JMP espera_tecla
+    JMP largou
 
 muda_energia:
 ; muda o valor da energia no display
