@@ -8,6 +8,7 @@ TEC_COL     EQU 0E000H  ; endereco das colunas do teclado (periferico PIN)
 LINHA_TEST  EQU 16      ; linha a testar (comecamos na 4a linha, mas por causa do shift right inicial inicializamos ao dobro)
 MASCARA     EQU 0FH     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 TSUB        EQU 00010001b ; tecla para subtrair a energia
+TADD        EQU 00010010b ; tecla para adicionar a energia
 TMOVESQ     EQU 10000001b ; tecla para mover nave para a esquerda
 TMOVDIR     EQU 10000100b ; tecla para mover nave para a direita
 TMOVINIM    EQU 01000010b ; tecla para mover meteoro para baixo
@@ -21,19 +22,22 @@ SEL_PIXEL   EQU 6012H   ; endereco do comando para escrever um pixel
 DEL_AVISO   EQU 6040H   ; endereco do comando para apagar o aviso de nenhum cenario selecionado
 BACKGROUND  EQU 6042H   ; endereco do comando para selecionar uma imagem de fundo
 
-MIN_COLUNA  EQU  0      ; número da coluna mais à esquerda que o objeto pode ocupar
-MAX_COLUNA  EQU  63     ; número da coluna mais à direita que o objeto pode ocupar
-ATRASO      EQU 400H    ; atraso para limitar a velocidade de movimento da nave
+MIN_COLUNA  EQU 0       ; numero da coluna mais a esquerda que o objeto pode ocupar
+MAX_COLUNA  EQU 64      ; numero da coluna mais a direita que o objeto pode ocupar
+MIN_LINHA   EQU 0       ; numero da linha mais acima que o objeto pode ocupar
+MAX_LINHA   EQU 32      ; numero da linha mais abaixo que o objeto pode ocupar
 
-NAVE_X      EQU 30     ; coluna do boneco
-NAVE_Y      EQU 28     ; linha do boneco
+DELAY       EQU 1800H   ; atraso para limitar a velocidade de movimento da nave
+
+NAVE_X      EQU 30      ; coluna da nave
+NAVE_Y      EQU 28      ; linha da nave
 NAVE_LX     EQU 5       ; largura da nave
 NAVE_LY     EQU 4       ; altura da nave
 
 INIMIGO_X   EQU 20
 INIMIGO_Y   EQU 3
-INIMIGO_LX   EQU 5
-INIMIGO_LY   EQU 5
+INIMIGO_LX  EQU 5
+INIMIGO_LY  EQU 5
 
 YELLOW      EQU 0FFF0H  ; cor amarelo em ARGB
 RED         EQU 0FF00H  ; cor vermelho em ARGB
@@ -43,8 +47,8 @@ RED         EQU 0FF00H  ; cor vermelho em ARGB
 ; #######################################################################
 PLACE       1000H
 pilha:
-    STACK 100H          ; espaço reservado para a stack
-SP_inicial:             ; este é o endereço com que o SP deve ser inicializado (1200H)
+    STACK 100H          ; espaco reservado para a stack
+SP_inicial:             ; este e o endereço com que o SP deve ser inicializado (1200H)
 
 def_nave:               ; tabela que define a nave (largura, altura e cor dos pixeis)
     WORD    NAVE_X
@@ -56,7 +60,7 @@ def_nave:               ; tabela que define a nave (largura, altura e cor dos pi
     WORD    YELLOW, YELLOW, YELLOW, YELLOW, YELLOW
     WORD    0, YELLOW, 0, YELLOW, 0
 
-def_inimigo:
+def_inimigo:            ; tabela que define o inimigo (largura, altura e cor dos pixeis)
     WORD    INIMIGO_X
     WORD    INIMIGO_Y
     WORD    INIMIGO_LX
@@ -122,31 +126,37 @@ loop_espera:
     SHL R1, 4           ; coloca linha no nibble high
     OR  R1, R0          ; junta coluna (nibble low)
 
-    ; caso muda_energia
+    ; caso subtrai_energia
     MOV R0, TSUB        ; agora R0 tem as coordenadas da tecla que subtrai a energia
     CMP R1, R0          ; verifica se carregamos nessa tecla
-    JZ muda_energia     ; efetuar a operacao caso tenha sido pressionada
+    JZ subtrai_energia  ; efetuar a operacao caso tenha sido pressionada
+
+    ; caso adiciona_energia
+    MOV R0, TADD        ; agora R0 tem as coordenadas da tecla que adiciona a energia
+    CMP R1, R0          ; verifica se carregamos nessa tecla
+    JZ adiciona_energia ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move para esquerda
     MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
-    CMP R1, R0          ; verifica se carregamos nessa tecla
-    MOV R4, -1          ; prepara argumento para move_nave (-1 para esquerda)
+    MOV R9, -1          ; prepara argumento para move_nave (-1 para esquerda)
     MOV R8, def_nave
-    JZ move_objeto        ; efetuar a operacao caso tenha sido pressionada
+    CMP R1, R0           ; verifica se carregamos nessa tecla
+    JZ move_objeto       ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move para direita
     MOV R0, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move a nave para a direita
-    CMP R1, R0          ; verifica se carregamos nessa tecla
-    MOV R4, 1           ; prepara argumento para move_nave (1 para direita)
+    MOV R9, 1           ; prepara argumento para move_nave (1 para direita)
     MOV R8, def_nave
-    JZ move_objeto        ; efetuar a operacao caso tenha sido pressionada
+    CMP R1, R0          ; verifica se carregamos nessa tecla
+    JZ move_objeto      ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move inimigo para baixo
     MOV R0, TMOVINIM
-    CMP R1, R0
+    MOV R9, 2           ; prepara argumento para move_nave (2 para baixo)
     MOV R8, def_inimigo
+    CMP R1, R0
     JZ move_objeto
-largou:             ; neste ciclo espera-se ate largar a tecla
+largou:                 ; neste ciclo espera-se ate largar a tecla
     MOVB [R2], R9       ; escrever no periferico de saída (linhas)
     MOVB R0, [R3]       ; ler do periferico de entrada (colunas)
     AND  R0, R5         ; elimina bits para além dos bits 0-3
@@ -154,54 +164,99 @@ largou:             ; neste ciclo espera-se ate largar a tecla
     JNZ largou          ; se ainda houver uma tecla premida repete o loop
     JMP espera_tecla    ; volta ao da funcao
 
+delay:
+	PUSH R0
+    MOV R0, DELAY
+ciclo_delay:
+	SUB R0, 1
+	JNZ	ciclo_delay
+	POP	R0
+	RET
+
+subtrai_energia:
+    CMP R6, 0           ; ver se a nossa energia atual ja e o minimo
+    JZ largou           ; caso seja o minimo nao fazemos nada
+    MOV R0, -1          ; -1 porque queremos que muda_energia subtraia
+    JMP muda_energia    ; mudar a energia
+
+adiciona_energia:
+    MOV R0, ENERGIA     ; valor maximo de energia
+    CMP R6, R0          ; ver se a nossa energia atual ja e o maximo
+    JZ largou           ; caso seja o maximo nao fazemos nada
+    MOV R0, 1           ; 1 porque queremos que muda_energia adicione
+    JMP muda_energia    ; mudar a energia
+
 muda_energia:
-; subtrai energia
-;sem argumentos
-    MOV R0, SENERGIA    ; valor a subtrair
-    SUB R6, R0          ; subtrair energia
+; muda o valor da energia no display
+; R0 -> -1 ou 1 consoante vamos subtrair ou adicionar energia
+    MOV R1, SENERGIA    ; valor a subtrair
+    MUL R1, R0          ; R1 vai ser -1 ou 1 consoante queremos aumentar ou diminuir
+    ADD R6, R1          ; subtrair ou aumentar energia
+    MOV [R4], R6        ; atualiza a energia nos displays
     JMP largou          ; espera que a tecla seja largada
 
 move_objeto:
 ; move a objeto para a esquerda ou direita
 ;argumentos:
-; R4 -> direcao (1 = direita, -1 = esquerda)
 ; R8 -> endereco da tabela que define os pixeis do objeto
+; R9 -> direcao (1 = direita, -1 = esquerda, -2 = cima, 2 = baixo)
     PUSH R2
     PUSH R3
-    CMP R4, 1           ; verifica para que lado se vai mover
+    ; verificar para que lado se vai mover
+    CMP R9, 1
     JZ verificacao_direita
-    ; verifica se ja esta no canto do ecra (esquerda)
-    MOV R2, [R8+4]      ; obtem posicao atual
+    CMP R9, 2
+    JZ verificacao_baixo
+verificacao_esquerda:
+    MOV R2, [R8]        ; obtem posicao atual
     CMP R2, MIN_COLUNA  ; verifica se ja esta na posicao mais a esquerda
     JZ fim_move_objeto
-    JMP aux_move_objeto
+    JMP move_x
 verificacao_direita:
     ; verifica se ja esta no canto do ecra (direita)
-    mov R0, R8          ; atributos da objeto
-    MOV R2, [R8+4]      ; obtem posicao atual
-    MOV R3, [R0]        ; obtem largura da objeto
+    MOV R2, [R8]        ; obtem posicao atual
+    MOV R3, [R8+4]      ; obtem largura da nave
     ADD R2, R3          ; adiciona largura
     MOV R3, MAX_COLUNA  ; largura do ecra
     CMP R2, R3          ; verifica se ja esta na posicao mais a direita
-    JGT fim_move_objeto
-aux_move_objeto:
+    JZ fim_move_objeto
+    JMP move_x
+verificacao_baixo:
+; meter aqui codigo que remove da tabela de objetos caso objeto avance pa fora
+    MOV R2, [R8+2]      ; obtem posicao atual
+    MOV R3, [R8+6]      ; obtem altura da nave
+    ADD R2, R3          ; adiciona altura
+    MOV R3, MAX_LINHA   ; altura do ecra
+    CMP R2, R3          ; verifica se ja esta na posicao mais a baixo
+    JZ fim_move_objeto
+    JMP move_y
+move_x:
     PUSH R8             ; argumentos da rotina apaga_objeto para objeto
     CALL apaga_objeto   ; apagar objeto
     POP R7              ; POP ao argumento
-    MOV R7, [R8]
-    ADD R7, R4
+    MOV R7, [R8]        ; obter coordenada atual
+    ADD R7, R9          ; obter a nova coordenada
     MOV [R8], R7        ; atualiza posicao objeto
     PUSH R8             ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
     CALL desenha_objeto ; desenhar objeto
     POP R7              ; POP ao argumento
+    JMP fim_move_objeto ; terminar
+move_y:
+    SHRA R9, 1          ; dividir por 2 o argumento preservando o sinal
+    PUSH R8             ; argumentos da rotina apaga_objeto para objeto
+    CALL apaga_objeto   ; apagar objeto
+    POP R7
+    MOV R7, [R8+2]      ; obter coordenada atual
+    ADD R7, R9          ; obter a nova coordenada
+    MOV [R8+2], R7      ; atualiza posicao objeto
+    PUSH R8          ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
+    CALL desenha_objeto ; desenhar objeto
+    POP R7
 fim_move_objeto:
     POP R3
     POP R2
-    JMP largou          ; espera que a tecla seja largada
-
-move_meteoro:
-    NOP
-    JMP largou
+    CALL delay          ; delay no movimento
+    JMP espera_tecla    ; volta ao inicio
 
 desenha_objeto:
 ; desenha um objeto
@@ -215,6 +270,7 @@ desenha_objeto:
     PUSH R4
     PUSH R5
     PUSH R6
+    PUSH R7
     MOV R3, [R0 + 4]    ; obtem a largura do objeto
     MOV R4, [R0 + 6]    ; obtem a altura do objeto
     MOV R1, [R0]        ; coluna inicial
@@ -237,6 +293,7 @@ desenha_colunas:        ; desenha os pixels do boneco a partir da tabela
     MOV R1, R5          ; reiniciar as colunas
     CMP R2, R4          ; verificar se ja tratamos da altura toda
     JNZ desenha_colunas ; continuar ate tratar da altura toda
+    POP R7
     POP R6
     POP R5
     POP R4
