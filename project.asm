@@ -13,8 +13,9 @@ TMOVESQ     EQU 10000001b ; tecla para mover nave para a esquerda
 TMOVDIR     EQU 10000100b ; tecla para mover nave para a direita
 TMOVINIM    EQU 01000010b ; tecla para mover meteoro para baixo
 
-ENERGIA     EQU 064H    ; valor inicial da energia
-SENERGIA    EQU 05H     ; valor de energia a subtrair
+MAX_ENERGIA EQU 064H    ; valor inicial da energia e maximo
+MIN_ENERGIA EQU 0       ; valor minimo da energia
+SENERGIA    EQU 05H     ; maximo divisor comum do valor de energia a subtrair e adicionar
 
 SEL_LINHA   EQU 600AH   ; endereco do comando para definir a linha
 SEL_COLUNA  EQU 600CH   ; endereco do comando para definir a coluna
@@ -82,7 +83,7 @@ inicio:
     MOV R3, TEC_COL     ; endereco do periferico das colunas
     MOV R4, DISPLAYS    ; endereco do periferico dos displays
     MOV R5, MASCARA     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
-    MOV R6, ENERGIA     ; valor inicial da energia
+    MOV R6, MAX_ENERGIA ; valor inicial da energia
     ; R7 -> auxiliar para passar argumentos
 
 ; corpo principal do programa
@@ -127,13 +128,19 @@ loop_espera:
 
     ; caso subtrai_energia
     MOV R0, TSUB        ; agora R0 tem as coordenadas da tecla que subtrai a energia
+    MOV R7, -1          ; -1 porque queremos que muda_energia subtraia
+    PUSH R7             ; argumentos para muda_energia
     CMP R1, R0          ; verifica se carregamos nessa tecla
-    JZ subtrai_energia  ; efetuar a operacao caso tenha sido pressionada
+    JZ muda_energia     ; efetuar a operacao caso tenha sido pressionada
+    POP R7
 
     ; caso adiciona_energia
     MOV R0, TADD        ; agora R0 tem as coordenadas da tecla que adiciona a energia
+    MOV R7, 2           ; 2 porque queremos que muda_energia adicione 10 (2*5)
+    PUSH R7             ; argumentos para muda_energia
     CMP R1, R0          ; verifica se carregamos nessa tecla
-    JZ adiciona_energia ; efetuar a operacao caso tenha sido pressionada
+    JZ muda_energia     ; efetuar a operacao caso tenha sido pressionada
+    POP R7
 
     ; caso move para esquerda
     MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
@@ -184,30 +191,24 @@ ciclo_delay:
 	POP	R0
 	RET
 
-subtrai_energia:
-    CMP R6, 0           ; ver se a nossa energia atual ja e o minimo
-    JZ largou           ; caso seja o minimo nao fazemos nada
-    MOV R7, -1          ; -1 porque queremos que muda_energia subtraia
-    PUSH R7             ; argumentos para muda_energia
-    JMP muda_energia    ; mudar a energia
-
-adiciona_energia:
-    MOV R0, ENERGIA     ; valor maximo de energia
-    CMP R6, R0          ; ver se a nossa energia atual ja e o maximo
-    JZ largou           ; caso seja o maximo nao fazemos nada
-    MOV R7, 1           ; 1 porque queremos que muda_energia adicione
-    PUSH R7             ; argumentos para muda_energia
-    JMP muda_energia    ; mudar a energia
-
 muda_energia:
 ; muda o valor da energia no display
 ;argumentos (stack):
-; 1 -> -1 ou 1 consoante vamos subtrair ou adicionar energia
+; 1 -> -1 ou 2 consoante vamos subtrair ou adicionar energia
     PUSH R0
     MOV R0, [SP+2]      ; argumentos
-    MOV R1, SENERGIA    ; valor a subtrair
-    MUL R1, R0          ; R1 vai ser -1 ou 1 consoante queremos aumentar ou diminuir
+    MOV R1, SENERGIA    ; valor a subtrair ou somar
+    MUL R1, R0          ; R1 vai ser -1 ou 2 consoante queremos aumentar ou diminuir
     ADD R6, R1          ; subtrair ou aumentar energia
+    MOV R7, MAX_ENERGIA
+    CMP R6, R7          ; verificar se excede o maximo
+    JLE verifica_negativo
+    MOV R6, MAX_ENERGIA ; se exceder o maximo volta a ser o maximo
+verifica_negativo:
+    CMP R6, MIN_ENERGIA ; verificar se nao e menor que o minimo
+    JGE fim_muda_energia
+    MOV R6, MIN_ENERGIA
+fim_muda_energia:
     MOV [R4], R6        ; atualiza a energia nos displays
     POP R0
     POP R7
