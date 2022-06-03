@@ -79,6 +79,7 @@ inicio:
     MOV R4, DISPLAYS    ; endereco do periferico dos displays
     MOV R5, MASCARA     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
     MOV R6, ENERGIA     ; valor inicial da energia
+    ; R7 -> auxiliar para passar argumentos
 
 ; corpo principal do programa
 main:
@@ -90,12 +91,16 @@ main:
     PUSH R2
 
     ; nave
-    MOV R0, def_nave    ; argumentos da rotina desenha_objeto para nave inicial
+    MOV R7, def_nave
+    PUSH R7             ; argumentos da rotina desenha_objeto para nave inicial
     CALL desenha_objeto ; desenhar nave
+    POP R7              ; POP ao argumento
 
     ; inimigo
-    MOV R0, def_inimigo ; argumentos da rotinha desenha_objeto para inimigo inicial
+    MOV R7, def_inimigo
+    PUSH R7             ; argumentos da rotinha desenha_objeto para inimigo inicial
     CALL desenha_objeto ; desenhar inimigo
+    POP R7              ; POP ao argumento
 
 ; executa principais funcoes (nota: falta implementar como processos)
     call espera_tecla
@@ -180,13 +185,15 @@ verificacao_direita:
     CMP R2, R3          ; verifica se ja esta na posicao mais a direita
     JGT fim_move_objeto
 aux_move_objeto:
-    MOV R0, R8          ; argumentos da rotina apaga_objeto para objeto
+    PUSH R8             ; argumentos da rotina apaga_objeto para objeto
     CALL apaga_objeto   ; apagar objeto
+    POP R7              ; POP ao argumento
     MOV R7, [R8]
     ADD R7, R4
     MOV [R8], R7        ; atualiza posicao objeto
-    MOV R0, R8          ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
+    PUSH R8             ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
     CALL desenha_objeto ; desenhar objeto
+    POP R7              ; POP ao argumento
 fim_move_objeto:
     POP R3
     POP R2
@@ -198,8 +205,10 @@ move_meteoro:
 
 desenha_objeto:
 ; desenha um objeto
-;argumentos:
-; R0 -> endereco da tabela que define os pixeis do objeto
+;argumentos (stack):
+; 1 -> endereco da tabela que define os pixeis do objeto
+    PUSH R0
+    MOV R0, [SP+4]
     PUSH R1
     PUSH R2
     PUSH R3
@@ -234,18 +243,20 @@ desenha_colunas:        ; desenha os pixels do boneco a partir da tabela
     POP R3
     POP R2
     POP R1
+    POP R0
     RET
 
 apaga_objeto:
 ; apaga um objeto
-;argumentos:
-; R0 -> endereco da tabela que define os pixeis do objeto
+;argumentos (stack):
+; 1 -> endereco da tabela que define os pixeis do objeto
+    PUSH R0
+    MOV R0, [SP+4]
     PUSH R1
     PUSH R2
     PUSH R3
     PUSH R4
     PUSH R5
-    PUSH R6
     MOV R3, [R0 + 4]    ; obtem a largura do objeto
     MOV R4, [R0 + 6]    ; obtem a altura do objeto
     MOV R1, [R0]        ; coluna inicial
@@ -265,10 +276,10 @@ apaga_colunas:          ; desenha os pixels do boneco a partir da tabela
     MOV R1, R5          ; reiniciar as colunas
     CMP R2, R4          ; verificar se ja tratamos da altura toda
     JNZ apaga_colunas   ; continuar ate tratar da altura toda
-    POP R6
     POP R5
     POP R4
     POP R3
     POP R2
     POP R1
+    POP R0
     RET
