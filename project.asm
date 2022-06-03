@@ -23,7 +23,7 @@ DEL_AVISO   EQU 6040H   ; endereco do comando para apagar o aviso de nenhum cena
 BACKGROUND  EQU 6042H   ; endereco do comando para selecionar uma imagem de fundo
 
 MIN_COLUNA  EQU 0       ; numero da coluna mais a esquerda que o objeto pode ocupar
-MAX_COLUNA  EQU 63      ; numero da coluna mais a direita que o objeto pode ocupar
+MAX_COLUNA  EQU 64      ; numero da coluna mais a direita que o objeto pode ocupar
 MIN_LINHA   EQU 0       ; numero da linha mais acima que o objeto pode ocupar
 MAX_LINHA   EQU 32      ; numero da linha mais abaixo que o objeto pode ocupar
 
@@ -83,6 +83,7 @@ inicio:
     MOV R4, DISPLAYS    ; endereco do periferico dos displays
     MOV R5, MASCARA     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
     MOV R6, ENERGIA     ; valor inicial da energia
+    ; R7 -> auxiliar para passar argumentos
 
 ; corpo principal do programa
 main:
@@ -94,12 +95,16 @@ main:
     PUSH R2
 
     ; nave
-    MOV R0, def_nave    ; argumentos da rotina desenha_objeto para nave inicial
+    MOV R7, def_nave
+    PUSH R7             ; argumentos da rotina desenha_objeto para nave inicial
     CALL desenha_objeto ; desenhar nave
+    POP R7              ; POP ao argumento
 
     ; inimigo
-    MOV R0, def_inimigo ; argumentos da rotinha desenha_objeto para inimigo inicial
+    MOV R7, def_inimigo
+    PUSH R7             ; argumentos da rotinha desenha_objeto para inimigo inicial
     CALL desenha_objeto ; desenhar inimigo
+    POP R7              ; POP ao argumento
 
 ; executa principais funcoes (nota: falta implementar como processos)
     CALL espera_tecla
@@ -222,23 +227,27 @@ verificacao_baixo:
     JMP move_y
     CALL apaga_objeto
 move_x:
-    MOV R0, R8          ; argumentos da rotina apaga_objeto para objeto
+    PUSH R8             ; argumentos da rotina apaga_objeto para objeto
     CALL apaga_objeto   ; apagar objeto
+    POP R7              ; POP ao argumento
     MOV R7, [R8]        ; obter coordenada atual
     ADD R7, R9          ; obter a nova coordenada
     MOV [R8], R7        ; atualiza posicao objeto
-    MOV R0, R8          ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
+    PUSH R8             ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
     CALL desenha_objeto ; desenhar objeto
+    POP R7              ; POP ao argumento
     JMP fim_move_objeto ; terminar
 move_y:
     SHRA R9, 1          ; dividir por 2 o argumento preservando o sinal
-    MOV R0, R8          ; argumentos da rotina apaga_objeto para objeto
+    PUSH R8             ; argumentos da rotina apaga_objeto para objeto
     CALL apaga_objeto   ; apagar objeto
+    POP R7
     MOV R7, [R8+2]      ; obter coordenada atual
     ADD R7, R9          ; obter a nova coordenada
     MOV [R8+2], R7      ; atualiza posicao objeto
-    MOV R0, R8          ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
+    PUSH R8          ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
     CALL desenha_objeto ; desenhar objeto
+    POP R7
 fim_move_objeto:
     POP R3
     POP R2
@@ -247,8 +256,10 @@ fim_move_objeto:
 
 desenha_objeto:
 ; desenha um objeto
-;argumentos:
-; R0 -> endereco da tabela que define os pixeis do objeto
+;argumentos (stack):
+; 1 -> endereco da tabela que define os pixeis do objeto
+    PUSH R0
+    MOV R0, [SP+4]
     PUSH R1
     PUSH R2
     PUSH R3
@@ -285,18 +296,20 @@ desenha_colunas:        ; desenha os pixels do boneco a partir da tabela
     POP R3
     POP R2
     POP R1
+    POP R0
     RET
 
 apaga_objeto:
 ; apaga um objeto
-;argumentos:
-; R0 -> endereco da tabela que define os pixeis do objeto
+;argumentos (stack):
+; 1 -> endereco da tabela que define os pixeis do objeto
+    PUSH R0
+    MOV R0, [SP+4]
     PUSH R1
     PUSH R2
     PUSH R3
     PUSH R4
     PUSH R5
-    PUSH R6
     MOV R3, [R0 + 4]    ; obtem a largura do objeto
     MOV R4, [R0 + 6]    ; obtem a altura do objeto
     MOV R1, [R0]        ; coluna inicial
@@ -316,10 +329,10 @@ apaga_colunas:          ; desenha os pixels do boneco a partir da tabela
     MOV R1, R5          ; reiniciar as colunas
     CMP R2, R4          ; verificar se ja tratamos da altura toda
     JNZ apaga_colunas   ; continuar ate tratar da altura toda
-    POP R6
     POP R5
     POP R4
     POP R3
     POP R2
     POP R1
+    POP R0
     RET
