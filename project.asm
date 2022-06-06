@@ -57,9 +57,18 @@ RED         EQU 0FF00H  ; cor vermelho em ARGB
 ; * ZONA DE DADOS
 ; #######################################################################
 PLACE       1000H
-pilha:
-    STACK 100H         ; espaco reservado para a stack
-SP_inicial:             ; este e o endereço com que o SP deve ser inicializado (1200H)
+
+stack_main:
+    STACK 100H          ; espaco reservado para a stack do programa principal
+sp_main:                ; este e o endereco com que o SP deve ser inicializado (1200H)
+
+stack_teclado:
+    STACK 100H          ; espaco reservado para a stack do processo que trata do teclado
+sp_teclado:
+
+stack_nave:
+    STACK 100H          ; espaco reservado para a stack do processo que trata da nave
+sp_nave:
 
 def_nave:               ; tabela que define a nave (largura, altura e cor dos pixeis)
     WORD    NAVE_X
@@ -88,7 +97,7 @@ def_inimigo:            ; tabela que define o inimigo (largura, altura e cor dos
 PLACE      0
 inicio:
 ; inicializacoes
-    MOV SP, SP_inicial  ; inicializar o stack pointer com o endereco 1200H
+    MOV SP, sp_main     ; inicializar o stack pointer com o endereco 1200H
     MOV R2, TEC_LIN     ; endereco do periferico das linhas
     MOV R3, TEC_COL     ; endereco do periferico das colunas
     MOV R4, DISPLAYS    ; endereco do periferico dos displays
@@ -111,11 +120,13 @@ main:
 ; executa principais funcoes (nota: falta implementar como processos)
     CALL espera_tecla
 
+PROCESS sp_teclado
 espera_tecla:
 ; espera uma tecla ser premida e executa a funcao correspondente
 ;sem argumentos
     MOV  R1, LINHA_TEST ; comecar por testar a linha 4
 loop_espera:
+    YIELD               ; loop possivelmente infinito
     SHR R1, 1           ; shift right
     CMP R1, 0           ; verificar se estamos a testar uma linha valida
     JZ  espera_tecla    ; reinicializar o valor da linha e recomecar o ciclo caso linha seja invalida
@@ -189,6 +200,7 @@ jogo:
     POP R7
 
 largou:                 ; neste ciclo espera-se ate largar a tecla
+    YIELD               ; loop possivelmente infinito
     MOVB [R2], R9       ; escrever no periferico de saída (linhas)
     MOVB R0, [R3]       ; ler do periferico de entrada (colunas)
     AND  R0, R5         ; elimina bits para além dos bits 0-3
@@ -200,13 +212,14 @@ delay:
 ; esta rotina e usada para controlar
 ; a velocidade de cliques continuos
 ;nao recebe argumentos
-	PUSH R0
+    YIELD               ; loop demorado
+    PUSH R0
     MOV R0, DELAY
 ciclo_delay:
-	SUB R0, 1
-	JNZ	ciclo_delay
-	POP	R0
-	RET
+    SUB R0, 1
+    JNZ ciclo_delay
+    POP R0
+    RET
 
 comecar_jogo:
 ; prepara o inicio do jogo
@@ -408,6 +421,7 @@ desenha_objeto:
     MOV R2, [R0+2]      ; linha inicial
     ADD R3, R1          ; coluna final
     ADD R4, R2          ; linha final
+    CALL atualiza_linha ; verificar se a linha final nao excede os limites do ecra
     MOV R7, 8
     ADD R0, R7          ; endereco da cor do primeiro pixel
     MOV R5, R1          ; copia das coordenadas iniciais da coluna
@@ -451,6 +465,7 @@ apaga_objeto:
     MOV R2, [R0+2]      ; linha inicial
     ADD R3, R1          ; coluna final
     ADD R4, R2          ; linha final
+    CALL atualiza_linha ; verificar se a linha final nao excede os limites do ecra
     MOV R5, R1          ; copia das coordenadas iniciais da coluna
 apaga_colunas:          ; desenha os pixels do boneco a partir da tabela
     MOV [SEL_COLUNA], R1; seleciona a coluna
@@ -469,5 +484,18 @@ apaga_colunas:          ; desenha os pixels do boneco a partir da tabela
     POP R3
     POP R2
     POP R1
+    POP R0
+    RET
+
+atualiza_linha:
+; atualiza, se necessario, a linha, para nao exceder os limites do ecra
+;argumentos:
+; R4 -> linha a atualizar
+    PUSH R0
+    MOV R0, MAX_LINHA
+    CMP R4, R0              ; verificar se excedemos a linha
+    JLE fim_atualiza_linha  ; se nao excedemos nao ha nada a fazer
+    MOV R4, MAX_LINHA       ; se excedemos so podemos desenhar o objeto ate a linha final
+fim_atualiza_linha:
     POP R0
     RET
