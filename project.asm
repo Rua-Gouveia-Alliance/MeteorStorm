@@ -139,7 +139,6 @@ controlo:
     CMP R1, 0
     JZ comecar_jogo
     JMP controlo
-
 comecar_jogo:
 ; prepara o inicio do jogo
     MOV R7, BACKGROUND_JOGO     ; cenario de fundo do jogo
@@ -170,7 +169,7 @@ espera_tecla:
 ;sem argumentos
     MOV  R1, LINHA_TEST ; comecar por testar a linha 4
 loop_espera:
-    YIELD               ; loop possivelmente infinito
+    WAIT                ; loop possivelmente infinito, utiliza se a diretiva WAIT para otimizar a utilizacao de recursos
     SHR R1, 1           ; shift right
     CMP R1, 0           ; verificar se estamos a testar uma linha valida
     JZ  espera_tecla    ; reinicializar o valor da linha e recomecar o ciclo caso linha seja invalida
@@ -188,7 +187,6 @@ loop_espera:
     JZ home
     CMP R8, JOGO        ; estamos a jogar o jogo?
     JZ jogo
-
 home:
     ; premir c para comecar
     MOV R0, TSTART
@@ -244,7 +242,6 @@ jogo:
     JZ move_objeto
     POP R7
     POP R7
-
 largou:                 ; neste ciclo espera-se ate largar a tecla
     YIELD               ; loop possivelmente infinito
     MOVB [R2], R9       ; escrever no periferico de saída (linhas)
@@ -253,7 +250,6 @@ largou:                 ; neste ciclo espera-se ate largar a tecla
     CMP R0, 0           ; ha tecla premida?
     JNZ largou          ; se ainda houver uma tecla premida repete o loop
     JMP espera_tecla    ; volta ao da funcao
-
 delay:
 ; esta rotina e usada para controlar
 ; a velocidade de cliques continuos
@@ -266,7 +262,6 @@ ciclo_delay:
     JNZ ciclo_delay
     POP R0
     RET
-
 unlock_controlo:
     MOV R7, lock_controlo
     MOV [R7], 0
