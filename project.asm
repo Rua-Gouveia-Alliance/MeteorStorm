@@ -66,9 +66,19 @@ stack_teclado:
     STACK 100H          ; espaco reservado para a stack do processo que trata do teclado
 sp_teclado:
 
+stack_controlo:
+    STACK 100H          ; espaco reservado para a stack do processo que trata do controlo
+sp_controlo:
+
+lock_controlo:          ; variavel para controlar o processo controlo
+    LOCK    0
+
 stack_nave:
     STACK 100H          ; espaco reservado para a stack do processo que trata da nave
 sp_nave:
+
+estado:
+    WORD HOME           ; estado do jogo
 
 def_nave:               ; tabela que define a nave (largura, altura e cor dos pixeis)
     WORD    NAVE_X
@@ -103,7 +113,6 @@ inicio:
     MOV R4, DISPLAYS    ; endereco do periferico dos displays
     MOV R5, MASCARA     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
     MOV R6, MAX_ENERGIA ; valor inicial da energia
-    MOV R8, HOME        ; comecamos o jogo no home screen
     ; R7 -> auxiliar para passar argumentos
 
 ; corpo principal do programa
@@ -118,7 +127,42 @@ main:
     MOV [R4], R7                ; setup inicial do display
 
 ; executa principais funcoes (nota: falta implementar como processos)
+    CALL controlo
     CALL espera_tecla
+
+PROCESS sp_controlo
+controlo:
+    MOV R0, lock_controlo       ; endereco da variavel LOCK
+    MOV R1, [R0]                ; ler o LOCK
+    MOV R2, estado              ; endereco do estado do jogo
+    MOV R3, [R2]                ; ler o estado do jogo
+    CMP R1, 0
+    JZ comecar_jogo
+    JMP controlo
+
+comecar_jogo:
+; prepara o inicio do jogo
+    MOV R7, BACKGROUND_JOGO     ; cenario de fundo do jogo
+    MOV [BACKGROUND], R7        ; seleciona o cenario de fundo
+
+    MOV R8, JOGO        ; novo estado
+    MOV [R2], R8        ; atualizar o estado do jogo
+    CALL hex_p_dec_representacao
+    MOV R4,
+    MOV [R4], R0        ; escreve a energia nos displays
+
+    ; nave
+    MOV R7, def_nave
+    PUSH R7             ; argumentos da rotina desenha_objeto para nave inicial
+    CALL desenha_objeto ; desenhar nave
+    POP R7              ; POP ao argumento
+
+    ; inimigo
+    MOV R7, def_inimigo
+    PUSH R7             ; argumentos da rotinha desenha_objeto para inimigo inicial
+    CALL desenha_objeto ; desenhar inimigo
+    POP R7              ; POP ao argumento
+    JMP controlo
 
 PROCESS sp_teclado
 espera_tecla:
@@ -138,6 +182,8 @@ loop_espera:
     MOV R9, R1          ; guardar o valor da linha
     SHL R1, 4           ; coloca linha no nibble high
     OR  R1, R0          ; junta coluna (nibble low)
+    MOV R7, estado      ; endereco do estado do jogo
+    MOV R8, [R7]        ; ler estado
     CMP R8, HOME        ; estamos no home screen?
     JZ home
     CMP R8, JOGO        ; estamos a jogar o jogo?
@@ -147,7 +193,7 @@ home:
     ; premir c para comecar
     MOV R0, TSTART
     CMP R1, R0
-    JZ comecar_jogo
+    JZ unlock_controlo
     JMP espera_tecla
 jogo:
     ; caso subtrai_energia
@@ -221,26 +267,9 @@ ciclo_delay:
     POP R0
     RET
 
-comecar_jogo:
-; prepara o inicio do jogo
-    MOV R7, BACKGROUND_JOGO     ; cenario de fundo do jogo
-    MOV [BACKGROUND], R7        ; seleciona o cenario de fundo
-
-    MOV R8, JOGO        ; atualizar o estado do jogo
-    CALL hex_p_dec_representacao
-    MOV [R4], R0        ; escreve a energia nos displays
-
-    ; nave
-    MOV R7, def_nave
-    PUSH R7             ; argumentos da rotina desenha_objeto para nave inicial
-    CALL desenha_objeto ; desenhar nave
-    POP R7              ; POP ao argumento
-
-    ; inimigo
-    MOV R7, def_inimigo
-    PUSH R7             ; argumentos da rotinha desenha_objeto para inimigo inicial
-    CALL desenha_objeto ; desenhar inimigo
-    POP R7              ; POP ao argumento
+unlock_controlo:
+    MOV R7, lock_controlo
+    MOV [R7], 0
     JMP largou
 
 muda_energia:
