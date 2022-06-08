@@ -79,7 +79,10 @@ lock_controlo:          ; variavel para controlar o processo controlo
 lock_energia:           ; variavel para controlar o processo energia
     LOCK    0
 
-lock_rover:          ; variavel para controlar o processo rover
+lock_rover:             ; variavel para controlar o processo rover
+    LOCK    0
+
+lock_main:
     LOCK    0
 
 estado:
@@ -127,6 +130,7 @@ main:
     CALL teclado
     CALL energia
     CALL rover
+    MOV R0, [lock_main]
 
 ; **********************************************************************
 ; Processo
@@ -153,19 +157,19 @@ comecar_jogo:
     MOV R0, BACKGROUND_JOGO     ; cenario de fundo do jogo
     MOV [BACKGROUND], R0        ; seleciona o cenario de fundo
 
-    MOV R0, JOGO        ; novo estado
-    MOV [estado], R0    ; atualizar o estado do jogo
-    MOV R1, MAX_ENERGIA ; energia inicial
+    MOV R0, JOGO                ; novo estado
+    MOV [estado], R0            ; atualizar o estado do jogo
+    MOV R1, MAX_ENERGIA         ; energia inicial
     CALL hex_p_dec_representacao
-    MOV [DISPLAYS], R0  ; escreve a energia nos displays
+    MOV [DISPLAYS], R0          ; escreve a energia nos displays
 
     ; nave
     MOV R0, def_rover
-    CALL desenha_objeto ; desenhar nave
+    CALL desenha_objeto         ; desenhar nave
 
     ; inimigo
     MOV R0, def_inimigo
-    CALL desenha_objeto ; desenhar inimigo
+    CALL desenha_objeto         ; desenhar inimigo
     JMP controlo
 
 ; **********************************************************************
@@ -237,7 +241,7 @@ jogo:
     CMP R5, R0
     MOV R0, def_inimigo
     MOV R1, 2           ; prepara argumento para move_nave (-1 para esquerda)
-    JZ move_objeto
+    JZ unlock_inimigo
 largou:                 ; neste ciclo espera-se ate largar a tecla
     YIELD               ; loop possivelmente infinito
     MOVB [R3], R9       ; escrever no periferico de saída (linhas)
@@ -267,6 +271,10 @@ unlock_energia:
 unlock_rover:
     MOV [lock_rover], R0
     CALL delay
+    JMP espera_tecla
+unlock_inimigo:
+; esta merda nao e unlock nenhum mas precisava de dar nome na tag
+    CALL move_objeto
     JMP espera_tecla
 
 ; **********************************************************************
@@ -411,21 +419,18 @@ apagar_objeto:
     JMP fim_move_objeto
 move_x:
     CALL apaga_objeto   ; apagar objeto
-    MOV R7, [R0]        ; obter coordenada atual
-    ADD R7, R1          ; obter a nova coordenada
-    MOV [R0], R7        ; atualiza posicao objeto
+    ADD R2, R1          ; obter a nova coordenada
+    MOV [R0], R2        ; atualiza posicao objeto
     CALL desenha_objeto ; desenhar objeto
     JMP fim_move_objeto ; terminar
 move_y:
     SHRA R1, 1          ; dividir por 2 o argumento preservando o sinal
     CALL apaga_objeto   ; apagar objeto
-    MOV R7, [R0+2]      ; obter coordenada atual
-    ADD R7, R1          ; obter a nova coordenada
-    MOV [R0+2], R7      ; atualiza posicao objeto
+    ADD R2, R1          ; obter a nova coordenada
+    MOV [R0+2], R2      ; atualiza posicao objeto
     CALL desenha_objeto ; desenhar objeto
-    MOV R7, PLAY_SOM    ; endereco do comando para reproduzir som
-    MOV R0, TIRO        ; som a reproduzir
-    MOV [R7], R0
+    MOV R2, TIRO        ; som a reproduzir
+    MOV [PLAY_SOM], R2
 fim_move_objeto:
     POP R3
     POP R2
@@ -519,7 +524,7 @@ atualiza_linha:
     PUSH R0
     MOV R0, MAX_LINHA
     CMP R4, R0              ; verificar se excedemos a linha
-    JLE fim_atualiza_linha  ; se nao excedemos nao ha nada a fazer
+    JLT fim_atualiza_linha  ; se nao excedemos nao ha nada a fazer
     MOV R4, MAX_LINHA       ; se excedemos so podemos desenhar o objeto ate a linha final
 fim_atualiza_linha:
     POP R0
