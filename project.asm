@@ -58,29 +58,28 @@ RED         EQU 0FF00H  ; cor vermelho em ARGB
 ; #######################################################################
 PLACE       1000H
 
-stack_main:
     STACK 100H          ; espaco reservado para a stack do programa principal
 sp_main:                ; este e o endereco com que o SP deve ser inicializado (1200H)
 
-stack_teclado:
     STACK 100H          ; espaco reservado para a stack do processo que trata do teclado
 sp_teclado:
 
-stack_controlo:
     STACK 100H          ; espaco reservado para a stack do processo que trata do controlo
 sp_controlo:
+
+    STACK 100H          ; espaco reservado para a stack do processo que trata do rover
+sp_rover:
 
 lock_controlo:          ; variavel para controlar o processo controlo
     LOCK    0
 
-stack_nave:
-    STACK 100H          ; espaco reservado para a stack do processo que trata da nave
-sp_nave:
+lock_rover:             ; variavel para controlar o processo rover
+    LOCK    0
 
 estado:
     WORD HOME           ; estado do jogo
 
-def_nave:               ; tabela que define a nave (largura, altura e cor dos pixeis)
+def_rover:              ; tabela que define o rover (largura, altura e cor dos pixeis)
     WORD    NAVE_X
     WORD    NAVE_Y
     WORD    NAVE_LX
@@ -105,151 +104,177 @@ def_inimigo:            ; tabela que define o inimigo (largura, altura e cor dos
 ; * Codigo
 ; **********************************************************************
 PLACE      0
-inicio:
-; inicializacoes
-    MOV SP, sp_main     ; inicializar o stack pointer com o endereco 1200H
-    MOV R2, TEC_LIN     ; endereco do periferico das linhas
-    MOV R3, TEC_COL     ; endereco do periferico das colunas
-    MOV R4, DISPLAYS    ; endereco do periferico dos displays
-    MOV R5, MASCARA     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
-    MOV R6, MAX_ENERGIA ; valor inicial da energia
-    ; R7 -> auxiliar para passar argumentos
-
-; corpo principal do programa
 main:
+; inicializacoes
+    MOV SP, sp_main             ; inicializar o stack pointer com o endereco 1200H
 ; setup inicial do ecra
     MOV [DEL_ECRAS], R0
     MOV [DEL_AVISO], R0         ; apaga o aviso de nenhum cenario selecionado
-    MOV R7, BACKGROUND_HOME     ; cenario de fundo do home
-    MOV [BACKGROUND], R7        ; seleciona o cenario de fundo
+    MOV R0, BACKGROUND_HOME     ; cenario de fundo do home
+    MOV [BACKGROUND], R0        ; seleciona o cenario de fundo
 
-    MOV R7, 0
-    MOV [R4], R7                ; setup inicial do display
+    MOV R0, 0
+    MOV [DISPLAYS], R0          ; setup inicial do display
 
-; executa principais funcoes (nota: falta implementar como processos)
+; executar processos
     CALL controlo
-    CALL espera_tecla
+    CALL teclado
 
+; **********************************************************************
+; Processo
+;
+; controlo - Processo que trata das teclas de comecar, pausar ou continuar
+; e terminar o jogo.
+;
+; **********************************************************************
 PROCESS sp_controlo
 controlo:
-    MOV R0, lock_controlo       ; endereco da variavel LOCK
-    MOV R1, [R0]                ; ler o LOCK
-    MOV R2, estado              ; endereco do estado do jogo
-    MOV R3, [R2]                ; ler o estado do jogo
-    CMP R1, 0
+    MOV R0, [lock_controlo]     ; ler o LOCK
+    MOV R1, [estado]            ; ler o estado do jogo
+    CMP R1, HOME                ; estamos no home screen?
+    JZ home_prov
+    JMP controlo
+home_prov:
+    ; premir c para comecar
+    MOV R1, TSTART
+    CMP R0, R1
     JZ comecar_jogo
     JMP controlo
 comecar_jogo:
 ; prepara o inicio do jogo
-    MOV R7, BACKGROUND_JOGO     ; cenario de fundo do jogo
-    MOV [BACKGROUND], R7        ; seleciona o cenario de fundo
+    MOV R0, BACKGROUND_JOGO     ; cenario de fundo do jogo
+    MOV [BACKGROUND], R0        ; seleciona o cenario de fundo
 
-    MOV R8, JOGO        ; novo estado
-    MOV [R2], R8        ; atualizar o estado do jogo
+    MOV R0, JOGO        ; novo estado
+    MOV [estado], R0    ; atualizar o estado do jogo
+    MOV R0, MAX_ENERGIA ; energia inicial
     CALL hex_p_dec_representacao
-    MOV R4,
-    MOV [R4], R0        ; escreve a energia nos displays
+    MOV [DISPLAYS], R0  ; escreve a energia nos displays
 
     ; nave
-    MOV R7, def_nave
-    PUSH R7             ; argumentos da rotina desenha_objeto para nave inicial
+    MOV R0, def_rover
+    PUSH R0             ; argumentos da rotina desenha_objeto para nave inicial
     CALL desenha_objeto ; desenhar nave
-    POP R7              ; POP ao argumento
+    POP R0              ; POP ao argumento
 
     ; inimigo
-    MOV R7, def_inimigo
-    PUSH R7             ; argumentos da rotinha desenha_objeto para inimigo inicial
+    MOV R0, def_inimigo
+    PUSH R0             ; argumentos da rotinha desenha_objeto para inimigo inicial
     CALL desenha_objeto ; desenhar inimigo
-    POP R7              ; POP ao argumento
+    POP R0              ; POP ao argumento
     JMP controlo
 
+; **********************************************************************
+; Processo
+;
+; teclado - Processo que trata de detetar cliques no teclado
+;
+; **********************************************************************
 PROCESS sp_teclado
+teclado:
+    MOV R2, MASCARA     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
+    MOV R3, TEC_LIN     ; endereco do periferico de saida
+    MOV R4, TEC_COL     ; endereco do periferico de entrada
+    MOV R6, MAX_ENERGIA ; valor inicial da energia
 espera_tecla:
 ; espera uma tecla ser premida e executa a funcao correspondente
 ;sem argumentos
-    MOV  R1, LINHA_TEST ; comecar por testar a linha 4
+    MOV  R0, LINHA_TEST ; comecar por testar a linha 4
 loop_espera:
     WAIT                ; loop possivelmente infinito, utiliza se a diretiva WAIT para otimizar a utilizacao de recursos
-    SHR R1, 1           ; shift right
-    CMP R1, 0           ; verificar se estamos a testar uma linha valida
+    SHR R0, 1           ; shift right
+    CMP R0, 0           ; verificar se estamos a testar uma linha valida
     JZ  espera_tecla    ; reinicializar o valor da linha e recomecar o ciclo caso linha seja invalida
-    MOVB [R2], R1       ; escrever no periferico de saída (linhas)
-    MOVB R0, [R3]       ; ler do periferico de entrada (colunas)
-    AND R0, R5          ; elimina bits para além dos bits 0-3
-    CMP R0, 0           ; ha tecla premida?
+    MOVB [R3], R0       ; escrever no periferico de saida (linhas)
+    MOVB R1, [R4]       ; ler do periferico de entrada (colunas)
+    AND R1, R2          ; elimina bits para além dos bits 0-3
+    CMP R1, 0           ; ha tecla premida?
     JZ  loop_espera     ; se nenhuma tecla premida, repete
-    MOV R9, R1          ; guardar o valor da linha
-    SHL R1, 4           ; coloca linha no nibble high
-    OR  R1, R0          ; junta coluna (nibble low)
-    MOV R7, estado      ; endereco do estado do jogo
-    MOV R8, [R7]        ; ler estado
-    CMP R8, HOME        ; estamos no home screen?
+    MOV R9, R0          ; guardar a linha
+    SHL R0, 4           ; coloca linha no nibble high
+    OR  R0, R1          ; junta coluna (nibble low)
+    MOV R1, [estado]    ; ler estado
+    CMP R1, HOME        ; estamos no home screen?
     JZ home
-    CMP R8, JOGO        ; estamos a jogar o jogo?
+    CMP R1, JOGO        ; estamos a jogar o jogo?
     JZ jogo
 home:
     ; premir c para comecar
-    MOV R0, TSTART
-    CMP R1, R0
+    MOV R1, TSTART
+    CMP R0, R1
     JZ unlock_controlo
     JMP espera_tecla
 jogo:
     ; caso subtrai_energia
-    MOV R0, TSUB        ; agora R0 tem as coordenadas da tecla que subtrai a energia
+    MOV R1, TSUB        ; agora R0 tem as coordenadas da tecla que subtrai a energia
     MOV R7, -1          ; -1 porque queremos que muda_energia subtraia
     PUSH R7             ; argumentos para muda_energia
-    CMP R1, R0          ; verifica se carregamos nessa tecla
+    CMP R0, R1          ; verifica se carregamos nessa tecla
     JZ muda_energia     ; efetuar a operacao caso tenha sido pressionada
     POP R7
 
     ; caso adiciona_energia
-    MOV R0, TADD        ; agora R0 tem as coordenadas da tecla que adiciona a energia
+    MOV R1, TADD        ; agora R0 tem as coordenadas da tecla que adiciona a energia
     MOV R7, 2           ; 2 porque queremos que muda_energia adicione 10 (2*5)
     PUSH R7             ; argumentos para muda_energia
-    CMP R1, R0          ; verifica se carregamos nessa tecla
+    CMP R0, R1          ; verifica se carregamos nessa tecla
     JZ muda_energia     ; efetuar a operacao caso tenha sido pressionada
     POP R7
 
     ; caso move para esquerda
-    MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
-    MOV R7, def_nave
+    MOV R1, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
+    MOV R7, def_rover
     PUSH R7
     MOV R7, -1          ; prepara argumento para move_nave (-1 para esquerda)
     PUSH R7
-    CMP R1, R0           ; verifica se carregamos nessa tecla
+    CMP R0, R1           ; verifica se carregamos nessa tecla
     JZ move_objeto       ; efetuar a operacao caso tenha sido pressionada
     POP R7
     POP R7
 
     ; caso move para direita
-    MOV R0, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move a nave para a direita
-    MOV R7, def_nave
+    MOV R1, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move a nave para a direita
+    MOV R7, def_rover
     PUSH R7
     MOV R7, 1          ; prepara argumento para move_nave (-1 para esquerda)
     PUSH R7
-    CMP R1, R0          ; verifica se carregamos nessa tecla
+    CMP R0, R1          ; verifica se carregamos nessa tecla
     JZ move_objeto      ; efetuar a operacao caso tenha sido pressionada
     POP R7
     POP R7
 
     ; caso move inimigo para baixo
-    MOV R0, TMOVINIM
+    MOV R1, TMOVINIM
     MOV R7, def_inimigo
     PUSH R7
     MOV R7, 2          ; prepara argumento para move_nave (-1 para esquerda)
     PUSH R7
-    CMP R1, R0
+    CMP R0, R1
     JZ move_objeto
     POP R7
     POP R7
 largou:                 ; neste ciclo espera-se ate largar a tecla
     YIELD               ; loop possivelmente infinito
-    MOVB [R2], R9       ; escrever no periferico de saída (linhas)
-    MOVB R0, [R3]       ; ler do periferico de entrada (colunas)
+    MOVB [R3], R9       ; escrever no periferico de saída (linhas)
+    MOVB R0, [R4]       ; ler do periferico de entrada (colunas)
     AND  R0, R5         ; elimina bits para além dos bits 0-3
     CMP R0, 0           ; ha tecla premida?
     JNZ largou          ; se ainda houver uma tecla premida repete o loop
     JMP espera_tecla    ; volta ao da funcao
+
+; **********************************************************************
+; Processo
+;
+; rover - Processo que trata do movimento do rover.
+;
+; **********************************************************************
+PROCESS sp_rover
+rover:
+
+
+
+
+
 delay:
 ; esta rotina e usada para controlar
 ; a velocidade de cliques continuos
@@ -263,8 +288,7 @@ ciclo_delay:
     POP R0
     RET
 unlock_controlo:
-    MOV R7, lock_controlo
-    MOV [R7], 0
+    MOV [lock_controlo], R0
     JMP largou
 
 muda_energia:
@@ -286,7 +310,7 @@ verifica_negativo:
     MOV R6, MIN_ENERGIA
 fim_muda_energia:
     CALL hex_p_dec_representacao
-    MOV [R4], R0        ; atualiza a energia nos displays
+    MOV [DISPLAYS], R0  ; atualiza a energia nos displays
     POP R0
     POP R7
     JMP largou          ; espera que a tecla seja largada
@@ -518,7 +542,7 @@ atualiza_linha:
     PUSH R0
     MOV R0, MAX_LINHA
     CMP R4, R0              ; verificar se excedemos a linha
-    JLE fim_atualiza_linha  ; se nao excedemos nao ha nada a fazer
+    JLT fim_atualiza_linha  ; se nao excedemos nao ha nada a fazer
     MOV R4, MAX_LINHA       ; se excedemos so podemos desenhar o objeto ate a linha final
 fim_atualiza_linha:
     POP R0
