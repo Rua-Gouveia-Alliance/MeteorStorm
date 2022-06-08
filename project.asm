@@ -67,13 +67,19 @@ sp_teclado:
     STACK 100H          ; espaco reservado para a stack do processo que trata do controlo
 sp_controlo:
 
+    STACK 100H          ; espaco reservado para a stack do processo que trata da energia
+sp_energia:
+
     STACK 100H          ; espaco reservado para a stack do processo que trata do rover
 sp_rover:
 
 lock_controlo:          ; variavel para controlar o processo controlo
     LOCK    0
 
-lock_rover:             ; variavel para controlar o processo rover
+lock_energia:           ; variavel para controlar o processo energia
+    LOCK    0
+
+lock_rover:          ; variavel para controlar o processo rover
     LOCK    0
 
 estado:
@@ -119,6 +125,8 @@ main:
 ; executar processos
     CALL controlo
     CALL teclado
+    CALL energia
+    CALL rover
 
 ; **********************************************************************
 ; Processo
@@ -147,21 +155,17 @@ comecar_jogo:
 
     MOV R0, JOGO        ; novo estado
     MOV [estado], R0    ; atualizar o estado do jogo
-    MOV R0, MAX_ENERGIA ; energia inicial
+    MOV R1, MAX_ENERGIA ; energia inicial
     CALL hex_p_dec_representacao
     MOV [DISPLAYS], R0  ; escreve a energia nos displays
 
     ; nave
     MOV R0, def_rover
-    PUSH R0             ; argumentos da rotina desenha_objeto para nave inicial
     CALL desenha_objeto ; desenhar nave
-    POP R0              ; POP ao argumento
 
     ; inimigo
     MOV R0, def_inimigo
-    PUSH R0             ; argumentos da rotinha desenha_objeto para inimigo inicial
     CALL desenha_objeto ; desenhar inimigo
-    POP R0              ; POP ao argumento
     JMP controlo
 
 ; **********************************************************************
@@ -175,84 +179,65 @@ teclado:
     MOV R2, MASCARA     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
     MOV R3, TEC_LIN     ; endereco do periferico de saida
     MOV R4, TEC_COL     ; endereco do periferico de entrada
-    MOV R6, MAX_ENERGIA ; valor inicial da energia
 espera_tecla:
 ; espera uma tecla ser premida e executa a funcao correspondente
 ;sem argumentos
-    MOV  R0, LINHA_TEST ; comecar por testar a linha 4
+    MOV  R5, LINHA_TEST ; comecar por testar a linha 4
 loop_espera:
     WAIT                ; loop possivelmente infinito, utiliza se a diretiva WAIT para otimizar a utilizacao de recursos
-    SHR R0, 1           ; shift right
-    CMP R0, 0           ; verificar se estamos a testar uma linha valida
+    SHR R5, 1           ; shift right
+    CMP R5, 0           ; verificar se estamos a testar uma linha valida
     JZ  espera_tecla    ; reinicializar o valor da linha e recomecar o ciclo caso linha seja invalida
-    MOVB [R3], R0       ; escrever no periferico de saida (linhas)
-    MOVB R1, [R4]       ; ler do periferico de entrada (colunas)
-    AND R1, R2          ; elimina bits para além dos bits 0-3
-    CMP R1, 0           ; ha tecla premida?
+    MOVB [R3], R5       ; escrever no periferico de saida (linhas)
+    MOVB R0, [R4]       ; ler do periferico de entrada (colunas)
+    AND R0, R2          ; elimina bits para além dos bits 0-3
+    CMP R0, 0           ; ha tecla premida?
     JZ  loop_espera     ; se nenhuma tecla premida, repete
-    MOV R9, R0          ; guardar a linha
-    SHL R0, 4           ; coloca linha no nibble high
-    OR  R0, R1          ; junta coluna (nibble low)
-    MOV R1, [estado]    ; ler estado
-    CMP R1, HOME        ; estamos no home screen?
+    MOV R9, R5          ; guardar a linha
+    SHL R5, 4           ; coloca linha no nibble high
+    OR  R5, R0          ; junta coluna (nibble low)
+    MOV R0, [estado]    ; ler estado
+    CMP R0, HOME        ; estamos no home screen?
     JZ home
-    CMP R1, JOGO        ; estamos a jogar o jogo?
+    CMP R0, JOGO        ; estamos a jogar o jogo?
     JZ jogo
 home:
     ; premir c para comecar
-    MOV R1, TSTART
-    CMP R0, R1
+    MOV R0, TSTART
+    CMP R5, R0
     JZ unlock_controlo
     JMP espera_tecla
 jogo:
     ; caso subtrai_energia
-    MOV R1, TSUB        ; agora R0 tem as coordenadas da tecla que subtrai a energia
-    MOV R7, -1          ; -1 porque queremos que muda_energia subtraia
-    PUSH R7             ; argumentos para muda_energia
-    CMP R0, R1          ; verifica se carregamos nessa tecla
-    JZ muda_energia     ; efetuar a operacao caso tenha sido pressionada
-    POP R7
+    MOV R0, TSUB        ; agora R0 tem as coordenadas da tecla que subtrai a energia
+    CMP R5, R0          ; verifica se carregamos nessa tecla
+    MOV R0, -1          ; -1 porque queremos que muda_energia subtraia
+    JZ unlock_energia   ; efetuar a operacao caso tenha sido pressionada
 
     ; caso adiciona_energia
-    MOV R1, TADD        ; agora R0 tem as coordenadas da tecla que adiciona a energia
-    MOV R7, 2           ; 2 porque queremos que muda_energia adicione 10 (2*5)
-    PUSH R7             ; argumentos para muda_energia
-    CMP R0, R1          ; verifica se carregamos nessa tecla
-    JZ muda_energia     ; efetuar a operacao caso tenha sido pressionada
-    POP R7
+    MOV R0, TADD        ; agora R0 tem as coordenadas da tecla que adiciona a energia
+    CMP R5, R0          ; verifica se carregamos nessa tecla
+    MOV R0, 2           ; 2 porque queremos que muda_energia adicione 10 (2*5)
+    JZ unlock_energia   ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move para esquerda
-    MOV R1, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
-    MOV R7, def_rover
-    PUSH R7
-    MOV R7, -1          ; prepara argumento para move_nave (-1 para esquerda)
-    PUSH R7
-    CMP R0, R1           ; verifica se carregamos nessa tecla
-    JZ move_objeto       ; efetuar a operacao caso tenha sido pressionada
-    POP R7
-    POP R7
+    MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
+    CMP R5, R0          ; verifica se carregamos nessa tecla
+    MOV R0, -1          ; prepara argumento para move_nave (-1 para esquerda)
+    JZ unlock_rover     ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move para direita
-    MOV R1, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move a nave para a direita
-    MOV R7, def_rover
-    PUSH R7
-    MOV R7, 1          ; prepara argumento para move_nave (-1 para esquerda)
-    PUSH R7
-    CMP R0, R1          ; verifica se carregamos nessa tecla
-    JZ move_objeto      ; efetuar a operacao caso tenha sido pressionada
-    POP R7
-    POP R7
+    MOV R0, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move a nave para a direita
+    CMP R5, R0          ; verifica se carregamos nessa tecla
+    MOV R0, 1           ; prepara argumento para move_nave (1 para direita)
+    JZ unlock_rover     ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move inimigo para baixo
-    MOV R1, TMOVINIM
-    MOV R7, def_inimigo
-    PUSH R7
-    MOV R7, 2          ; prepara argumento para move_nave (-1 para esquerda)
-    PUSH R7
-    CMP R0, R1
+    MOV R0, TMOVINIM
+    CMP R5, R0
+    MOV R0, def_inimigo
+    MOV R1, 2           ; prepara argumento para move_nave (-1 para esquerda)
     JZ move_objeto
-    POP R7
-    POP R7
 largou:                 ; neste ciclo espera-se ate largar a tecla
     YIELD               ; loop possivelmente infinito
     MOVB [R3], R9       ; escrever no periferico de saída (linhas)
@@ -261,20 +246,6 @@ largou:                 ; neste ciclo espera-se ate largar a tecla
     CMP R0, 0           ; ha tecla premida?
     JNZ largou          ; se ainda houver uma tecla premida repete o loop
     JMP espera_tecla    ; volta ao da funcao
-
-; **********************************************************************
-; Processo
-;
-; rover - Processo que trata do movimento do rover.
-;
-; **********************************************************************
-PROCESS sp_rover
-rover:
-
-
-
-
-
 delay:
 ; esta rotina e usada para controlar
 ; a velocidade de cliques continuos
@@ -288,57 +259,90 @@ ciclo_delay:
     POP R0
     RET
 unlock_controlo:
-    MOV [lock_controlo], R0
+    MOV [lock_controlo], R5
     JMP largou
+unlock_energia:
+    MOV [lock_energia], R0
+    JMP largou
+unlock_rover:
+    MOV [lock_rover], R0
+    CALL delay
+    JMP espera_tecla
 
+; **********************************************************************
+; Processo
+;
+; energia - Processo que trata da energia.
+;
+; **********************************************************************
+PROCESS sp_energia
+energia:
+    MOV R1, MAX_ENERGIA         ; valor inicial da energia
+ciclo_energia:
+    MOV R0, [lock_energia]      ; ler o LOCK, contem o valor a adicionar ou multiplicar
+    CALL muda_energia           ; alterar a energia em funcao do calor lido
+    JMP ciclo_energia
 muda_energia:
 ; muda o valor da energia no display
-;argumentos (stack):
-; 1 -> -1 ou 2 consoante vamos subtrair ou adicionar energia
-    PUSH R0
-    MOV R0, [SP+2]      ; argumentos
-    MOV R1, SENERGIA    ; valor a subtrair ou somar
-    MUL R1, R0          ; R1 vai ser -1 ou 2 consoante queremos aumentar ou diminuir
-    ADD R6, R1          ; subtrair ou aumentar energia
-    MOV R7, MAX_ENERGIA
-    CMP R6, R7          ; verificar se excede o maximo
+;argumentos:
+; R0 -> -1 ou 2 consoante vamos subtrair ou adicionar energia
+; R1 -> Valor atual da energia
+    ADD R1, R0          ; subtrair ou aumentar energia
+    MOV R3, MAX_ENERGIA
+    CMP R1, R3          ; verificar se excede o maximo
     JLE verifica_negativo
-    MOV R6, MAX_ENERGIA ; se exceder o maximo volta a ser o maximo
+    MOV R1, MAX_ENERGIA ; se exceder o maximo volta a ser o maximo
 verifica_negativo:
-    CMP R6, MIN_ENERGIA ; verificar se nao e menor que o minimo
+    CMP R1, MIN_ENERGIA ; verificar se nao e menor que o minimo
     JGE fim_muda_energia
-    MOV R6, MIN_ENERGIA
+    MOV R1, MIN_ENERGIA
 fim_muda_energia:
     CALL hex_p_dec_representacao
     MOV [DISPLAYS], R0  ; atualiza a energia nos displays
-    POP R0
-    POP R7
-    JMP largou          ; espera que a tecla seja largada
+    RET
+
+; **********************************************************************
+; Processo
+;
+; energia - Processo que trata da energia.
+;
+; **********************************************************************
+PROCESS sp_rover
+rover:
+    MOV R0, def_rover         ; tabela que define o rover
+loop_rover:
+    MOV R1, [lock_rover]      ; ler o LOCK, contem a direcao em que mexer o rover
+    CALL move_objeto
+    JMP loop_rover
+
+; **********************************************************************
+; * Rotinas
+; **********************************************************************
 
 hex_p_dec_representacao:
 ; muda o valor hexadecimal para a sua representacao em binario
 ;argumentos (registos):
-; R6 -> numero hexadecimal original
+; R1 -> numero hexadecimal original
 ;valor retornado
 ; R0 -> numero final na representacao correta
-    PUSH R1
     PUSH R2
     PUSH R3
     PUSH R4
     PUSH R5
+    PUSH R6
     PUSH R7
     PUSH R8
     MOV R7, 0       ; inicializar numero de algarismos
     MOV R0, 00H     ; inicializar resultado
-    MOV R1, 0AH     ; numero 10 para divisao
-    MOV R2, R6      ; copiar o valor inicial
+    MOV R6, 0AH     ; numero 10 para divisao
+    MOV R2, R1      ; copiar o valor inicial
 ciclo_hex_p_dec:
     ADD R7, 1       ; contar numero de algarismos
     MOV R3, R2      ; R3 = R2
-    DIV R3, R1      ; R3 = R3/10
+    DIV R3, R6      ; R3 = R3/10
     MOV R4, R2      ; R4 = R2
     MOV R2, R3      ; R2 = R3
-    MUL R3, R1      ; R3 = R3*10
+    MUL R3, R6      ; R3 = R3*10
     SUB R4, R3      ; R4 = R4 - R3
     SHR R0, 4       ; R0 << 4
     MOV R5, MASCARA
@@ -361,22 +365,18 @@ ciclo_hex_p_dec_shr:
 fim_hex_p_dec:
     POP R8
     POP R7
+    POP R6
     POP R5
     POP R4
     POP R3
     POP R2
-    POP R1
     RET
 
 move_objeto:
 ; move a objeto para a esquerda ou direita
-;argumentos (stack):
-; 1 -> endereco da tabela que define os pixeis do objeto
-; 2 -> direcao (1 = direita, -1 = esquerda, -2 = cima, 2 = baixo)
-    PUSH R0
-    MOV R0, [SP+4]
-    PUSH R1
-    MOV R1, [SP+4]
+;argumentos:
+; R0 -> endereco da tabela que define os pixeis do objeto
+; R1 -> direcao (1 = direita, -1 = esquerda, -2 = cima, 2 = baixo)
     PUSH R2
     PUSH R3
     ; verificar para que lado se vai mover
@@ -404,58 +404,37 @@ verificacao_baixo:
     MOV R3, MAX_LINHA   ; limite maximo da linha
     CMP R2, R3          ; ver se nao execedemos o limite
     JLT move_y          ; se nao excedemos continuamos normalmente
-    PUSH R0             ; se excedemos so vamos querer apagar o objeto
+    JZ apagar_objeto    ; se estivermos na ultima linha so queremos apagar o objeto
+    JMP fim_move_objeto
+apagar_objeto:
     CALL apaga_objeto
-    POP R7              ; corrigir a stack
     JMP fim_move_objeto
 move_x:
-    PUSH R0             ; argumentos da rotina apaga_objeto para objeto
     CALL apaga_objeto   ; apagar objeto
-    POP R7              ; POP ao argumento
     MOV R7, [R0]        ; obter coordenada atual
     ADD R7, R1          ; obter a nova coordenada
     MOV [R0], R7        ; atualiza posicao objeto
-    PUSH R0             ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
     CALL desenha_objeto ; desenhar objeto
-    POP R7              ; POP ao argumento
     JMP fim_move_objeto ; terminar
 move_y:
     SHRA R1, 1          ; dividir por 2 o argumento preservando o sinal
-    PUSH R0             ; argumentos da rotina apaga_objeto para objeto
     CALL apaga_objeto   ; apagar objeto
-    POP R7
     MOV R7, [R0+2]      ; obter coordenada atual
     ADD R7, R1          ; obter a nova coordenada
     MOV [R0+2], R7      ; atualiza posicao objeto
-    PUSH R0             ; argumentos da rotina desenha_objeto para voltar a desenhar a objeto
     CALL desenha_objeto ; desenhar objeto
-    POP R7
     MOV R7, PLAY_SOM    ; endereco do comando para reproduzir som
     MOV R0, TIRO        ; som a reproduzir
     MOV [R7], R0
-    POP R3
-    POP R2
-    POP R1
-    POP R0
-    POP R7
-    POP R7
-    JMP largou
 fim_move_objeto:
     POP R3
     POP R2
-    POP R1
-    POP R0
-    POP R7
-    POP R7
-    CALL delay          ; delay no movimento
-    JMP espera_tecla    ; volta ao inicio
+    RET
 
 desenha_objeto:
 ; desenha um objeto
-;argumentos (stack):
-; 1 -> endereco da tabela que define os pixeis do objeto
-    PUSH R0
-    MOV R0, [SP+4]
+;argumentos:
+; R0 -> endereco da tabela que define os pixeis do objeto
     PUSH R1
     PUSH R2
     PUSH R3
@@ -471,14 +450,14 @@ desenha_objeto:
     ADD R4, R2          ; linha final
     CALL atualiza_linha ; verificar se a linha final nao excede os limites do ecra
     MOV R7, 8
-    ADD R0, R7          ; endereco da cor do primeiro pixel
+    ADD R7, R0          ; endereco da cor do primeiro pixel
     MOV R5, R1          ; copia das coordenadas iniciais da coluna
 desenha_colunas:        ; desenha os pixels do boneco a partir da tabela
-    MOV R6, [R0]        ; obtem a cor do proximo pixel
+    MOV R6, [R7]        ; obtem a cor do proximo pixel
     MOV [SEL_COLUNA], R1; seleciona a coluna
     MOV [SEL_LINHA], R2 ; seleciona a linha
     MOV [SEL_PIXEL], R6 ; altera a cor do pixel na linha e coluna selecionadas
-    ADD R0, 2           ; endereco da cor do proximo pixel
+    ADD R7, 2           ; endereco da cor do proximo pixel
     ADD R1, 1           ; proxima coluna
     CMP R1, R3          ; verificar se ja tratamos da largura toda
     JNZ desenha_colunas ; continua ate percorrer toda a largura do objeto
@@ -493,20 +472,18 @@ desenha_colunas:        ; desenha os pixels do boneco a partir da tabela
     POP R3
     POP R2
     POP R1
-    POP R0
     RET
 
 apaga_objeto:
 ; apaga um objeto
-;argumentos (stack):
-; 1 -> endereco da tabela que define os pixeis do objeto
-    PUSH R0
-    MOV R0, [SP+4]
+;argumentos:
+; R0 -> endereco da tabela que define os pixeis do objeto
     PUSH R1
     PUSH R2
     PUSH R3
     PUSH R4
     PUSH R5
+    PUSH R6
     MOV R3, [R0 + 4]    ; obtem a largura do objeto
     MOV R4, [R0 + 6]    ; obtem a altura do objeto
     MOV R1, [R0]        ; coluna inicial
@@ -515,11 +492,11 @@ apaga_objeto:
     ADD R4, R2          ; linha final
     CALL atualiza_linha ; verificar se a linha final nao excede os limites do ecra
     MOV R5, R1          ; copia das coordenadas iniciais da coluna
+    MOV R6, 0           ; escolhe cor 0 (apagar)
 apaga_colunas:          ; desenha os pixels do boneco a partir da tabela
     MOV [SEL_COLUNA], R1; seleciona a coluna
     MOV [SEL_LINHA], R2 ; seleciona a linha
-    MOV R0, 0           ; escolhe cor 0 (apagar)
-    MOV [SEL_PIXEL], R0 ; apaga o pixel na linha e coluna selecionadas
+    MOV [SEL_PIXEL], R6 ; apaga o pixel na linha e coluna selecionadas
     ADD R1, 1           ; proxima coluna
     CMP R1, R3          ; verificar se ja tratamos da largura toda
     JNZ apaga_colunas   ; continua ate percorrer toda a largura do objeto
@@ -527,12 +504,12 @@ apaga_colunas:          ; desenha os pixels do boneco a partir da tabela
     MOV R1, R5          ; reiniciar as colunas
     CMP R2, R4          ; verificar se ja tratamos da altura toda
     JNZ apaga_colunas   ; continuar ate tratar da altura toda
+    POP R6
     POP R5
     POP R4
     POP R3
     POP R2
     POP R1
-    POP R0
     RET
 
 atualiza_linha:
@@ -542,7 +519,7 @@ atualiza_linha:
     PUSH R0
     MOV R0, MAX_LINHA
     CMP R4, R0              ; verificar se excedemos a linha
-    JLT fim_atualiza_linha  ; se nao excedemos nao ha nada a fazer
+    JLE fim_atualiza_linha  ; se nao excedemos nao ha nada a fazer
     MOV R4, MAX_LINHA       ; se excedemos so podemos desenhar o objeto ate a linha final
 fim_atualiza_linha:
     POP R0
