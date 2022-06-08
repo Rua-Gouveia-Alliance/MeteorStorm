@@ -456,7 +456,8 @@ desenha_objeto:
     MOV R1, [R0]        ; coluna inicial
     MOV R2, [R0+2]      ; linha inicial
     ADD R3, R1          ; coluna final
-    ADD R4, R2          ; linha final
+    ADD R4, R2
+    SUB R4, 1           ; linha final
     CALL atualiza_linha ; verificar se a linha final nao excede os limites do ecra
     MOV R7, 8
     ADD R7, R0          ; endereco da cor do primeiro pixel
@@ -473,7 +474,7 @@ desenha_colunas:        ; desenha os pixels do boneco a partir da tabela
     ADD R2, 1           ; proxima linha
     MOV R1, R5          ; reiniciar as colunas
     CMP R2, R4          ; verificar se ja tratamos da altura toda
-    JNZ desenha_colunas ; continuar ate tratar da altura toda
+    JLE desenha_colunas ; continuar ate tratar da altura toda
     POP R7
     POP R6
     POP R5
@@ -498,7 +499,8 @@ apaga_objeto:
     MOV R1, [R0]        ; coluna inicial
     MOV R2, [R0+2]      ; linha inicial
     ADD R3, R1          ; coluna final
-    ADD R4, R2          ; linha final
+    ADD R4, R2
+    SUB R4, 1           ; linha final
     CALL atualiza_linha ; verificar se a linha final nao excede os limites do ecra
     MOV R5, R1          ; copia das coordenadas iniciais da coluna
     MOV R6, 0           ; escolhe cor 0 (apagar)
@@ -512,7 +514,7 @@ apaga_colunas:          ; desenha os pixels do boneco a partir da tabela
     ADD R2, 1           ; proxima linha
     MOV R1, R5          ; reiniciar as colunas
     CMP R2, R4          ; verificar se ja tratamos da altura toda
-    JNZ apaga_colunas   ; continuar ate tratar da altura toda
+    JLE apaga_colunas   ; continuar ate tratar da altura toda
     POP R6
     POP R5
     POP R4
@@ -528,7 +530,7 @@ atualiza_linha:
     PUSH R0
     MOV R0, MAX_LINHA
     CMP R4, R0              ; verificar se excedemos a linha
-    JLT fim_atualiza_linha  ; se nao excedemos nao ha nada a fazer
+    JLE fim_atualiza_linha  ; se nao excedemos nao ha nada a fazer
     MOV R4, MAX_LINHA       ; se excedemos so podemos desenhar o objeto ate a linha final
 fim_atualiza_linha:
     POP R0
