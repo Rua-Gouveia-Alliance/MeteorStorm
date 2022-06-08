@@ -240,8 +240,10 @@ jogo:
     MOV R0, TMOVINIM
     CMP R5, R0
     MOV R0, def_inimigo
-    MOV R1, 2           ; prepara argumento para move_nave (-1 para esquerda)
+    MOV R1, 2           ; prepara argumento para move_nave (2 para baixo)
     JZ unlock_inimigo
+
+    JMP espera_tecla
 largou:                 ; neste ciclo espera-se ate largar a tecla
     YIELD               ; loop possivelmente infinito
     MOVB [R3], R9       ; escrever no periferico de saída (linhas)
@@ -254,7 +256,6 @@ delay:
 ; esta rotina e usada para controlar
 ; a velocidade de cliques continuos
 ;nao recebe argumentos
-    YIELD               ; loop demorado
     PUSH R0
     MOV R0, DELAY
 ciclo_delay:
@@ -270,12 +271,13 @@ unlock_energia:
     JMP largou
 unlock_rover:
     MOV [lock_rover], R0
+    YIELD
     CALL delay
     JMP espera_tecla
 unlock_inimigo:
 ; esta merda nao e unlock nenhum mas precisava de dar nome na tag
     CALL move_objeto
-    JMP espera_tecla
+    JMP largou
 
 ; **********************************************************************
 ; Processo
@@ -418,12 +420,14 @@ apagar_objeto:
     CALL apaga_objeto
     JMP fim_move_objeto
 move_x:
+    MOV R2, [R0]      ; obtem posicao atual
     CALL apaga_objeto   ; apagar objeto
     ADD R2, R1          ; obter a nova coordenada
     MOV [R0], R2        ; atualiza posicao objeto
     CALL desenha_objeto ; desenhar objeto
     JMP fim_move_objeto ; terminar
 move_y:
+    MOV R2, [R0+2]      ; obtem posicao atual
     SHRA R1, 1          ; dividir por 2 o argumento preservando o sinal
     CALL apaga_objeto   ; apagar objeto
     ADD R2, R1          ; obter a nova coordenada
