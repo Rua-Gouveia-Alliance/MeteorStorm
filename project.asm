@@ -118,6 +118,12 @@ def_rover:              ; tabela que define o rover (largura, altura e cor dos p
     WORD    YELLOW, YELLOW, YELLOW, YELLOW, YELLOW
     WORD    0, YELLOW, 0, YELLOW, 0
 
+ROVER_X:
+    WORD    NAVE_X
+
+ROVER_Y:
+    WORD    NAVE_Y
+
 def_muito_distante:     ; tabela que define o inimigo/metero bom muito distante (largura, altura e cor dos pixeis)
     WORD    OBJETO_MDX
     WORD    OBJETO_MDY
@@ -340,6 +346,8 @@ rover:
     MOV R2, NAVE_Y
     CALL desenha_objeto       ; desenhar o rover inicial no ecra
 loop_rover:
+    MOV [ROVER_X], R1         ; atualizar posicao do rover global
+    MOV [ROVER_Y], R2
     MOV R3, [lock_rover]      ; ler o LOCK, contem a direcao em que mexer o rover
     CMP R3, DIREITA           ; vamos mexer para a direita?
     JZ verificacao_direita
@@ -380,6 +388,10 @@ verificacao_baixo:
     CMP R2, R4          ; ver se nao execedemos o limite
     JZ apagar_inimigo   ; se estivermos na ultima linha so queremos apagar o objeto
     CALL move_objeto_y
+    MOV R4, [def_rover]
+    MOV R5, [ROVER_X]
+    MOV R6, [ROVER_Y]
+    CALL verifica_colisao
     JMP loop_inimigo
 apagar_inimigo:
     CALL apaga_objeto
@@ -550,6 +562,58 @@ fim_move_nave:
     CALL desenha_objeto ; desenhar objeto
     POP R4
     RET
+
+verifica_colisao:
+; verifica colisao entre 2 objetos
+;argumentos:
+; R0 -> endereco da tabela que define os pixeis do obj1
+; R1 -> X do obj1
+; R2 -> Y do obj1
+; R4 -> endereco da tabela que define os pixeis do obj2
+; R5 -> X do obj2
+; R6 -> Y do obj2
+;retorno:
+; R7 -> 1 se colidiu, 0 se nao
+    PUSH R1
+    PUSH R2
+    PUSH R5
+    PUSH R6
+    PUSH R8
+; encontrar o centro do obj1
+    MOV R8, [R0]    ; obter a largura
+    SHR R8, 1       ; dividir a largura por 2
+    ADD R1, R8      ; adicionar a atual posicao
+    MOV R8, [R0+2]  ; obter a altura
+    SHR R8, 1       ; dividir a altura por 2
+    ADD R2, R8      ; adicionar a atual posicao
+; comparacoes
+    CMP R1, R5      ; comparar se o centro esta a direita do X do obj2
+    JLT nao_colidiu ; se nao estiver, nao colidiram
+    CMP R2, R6      ; comparar se o centro esta abaixo do Y do obj2
+    JLT nao_colidiu ; se nao estiver, nao colidiram
+; obter coordenadas do canto inferior direito do obj2
+    MOV R8, [R4]    ; obter a largura
+    ADD R5, R8      ; adicionar ao atual X
+    MOV R8, [R4+2]  ; obter a altura
+    ADD R6, R8      ; adicionar ao atual Y
+; comparacoes 2
+    CMP R1, R5      ; comparar se o centro esta a esquerda do X+largura do obj2
+    JGT nao_colidiu ; se nao estiver, nao colidiram
+    CMP R2, R6      ; comparar se o centro esta abaixo do Y+altura do obj2
+    JGT nao_colidiu ; se nao estiver, nao colidiram
+    MOV R7, 1       ; se chegou aqui houve colisao
+    JMP fim_verifica_colisao
+nao_colidiu:
+    MOV R7, 0
+fim_verifica_colisao:
+    POP R8
+    POP R6
+    POP R5
+    POP R2
+    POP R1
+    RET
+    
+
 
 desenha_objeto:
 ; desenha um objeto
