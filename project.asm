@@ -48,13 +48,20 @@ NAVE_LX     EQU 5       ; largura da nave
 NAVE_LY     EQU 4       ; altura da nave
 
 INIMIGO_X   EQU 20      ; coluna do inimigo
-INIMIGO_Y   EQU 3       ; linha do inimigo
-INIMIGO_PX  EQU 5       ; largura do inimigo perto
-INIMIGO_PY  EQU 5       ; altura do inimigo perto
-INIMIGO_MX  EQU 4       ; largura do inimigo a distancia media
-INIMIGO_MY  EQU 4       ; altura do inimigo a distancia media
-INIMIGO_LX  EQU 3       ; largura do inimigo longe
-INIMIGO_LY  EQU 3       ; altura do inimigo longe
+INIMIGO_Y   EQU 0       ; linha do inimigo
+OBJETO_PX   EQU 5       ; largura do inimigo/meteoro bom perto
+OBJETO_PY   EQU 5       ; altura do inimigo/meteoro bom perto
+OBJETO_MX   EQU 4       ; largura do inimigo/meteoro bom a distancia media
+OBJETO_MY   EQU 4       ; altura do inimigo/meteoro bom a distancia media
+OBJETO_LX   EQU 3       ; largura do inimigo/meteoro bom longe
+OBJETO_LY   EQU 3       ; altura do inimigo/meteoro bom longe
+OBJETO_DX   EQU 2       ; largura do inimigo/meteoro distante
+OBJETO_DY   EQU 2       ; altura do inimigo/meteoro distante
+OBJETO_MDX  EQU 1       ; largura do inimigo/meteoro muito distante
+OBJETO_MDY  EQU 1       ; altura do inimigo/meteoro muito distante
+DISTANTE    EQU 3       ; coordenada a partir da qual se considera distante
+LONGE       EQU 5       ; coordenada a partir da qual se considera longe
+MEDIO       EQU 9       ; coordenada a partir da qual se considera distancia media
 PERTO       EQU 14      ; coordenada a partir da qual se considera perto
 
 YELLOW      EQU 0FFF0H  ; cor amarelo em ARGB
@@ -109,9 +116,20 @@ def_rover:              ; tabela que define o rover (largura, altura e cor dos p
     WORD    YELLOW, YELLOW, YELLOW, YELLOW, YELLOW
     WORD    0, YELLOW, 0, YELLOW, 0
 
+def_muito_distante:     ; tabela que define o inimigo/metero bom muito distante (largura, altura e cor dos pixeis)
+    WORD    OBJETO_MDX
+    WORD    OBJETO_MDY
+    WORD    RED         ; mudar esta cor pa cinzento depois
+
+def_distante:     ; tabela que define o inimigo/metero bom distante (largura, altura e cor dos pixeis)
+    WORD    OBJETO_DX
+    WORD    OBJETO_DY
+    WORD    RED, RED    ; mudar esta cor pa cinzento depois
+    WORD    RED, RED    ; mudar esta cor pa cinzento depois
+
 def_inimigo_perto:      ; tabela que define o inimigo perto (largura, altura e cor dos pixeis)
-    WORD    INIMIGO_PX
-    WORD    INIMIGO_PY
+    WORD    OBJETO_PX
+    WORD    OBJETO_PY
     WORD    RED, 0, 0, 0, RED
     WORD    RED, 0, RED, 0, RED
     WORD    0, RED, RED, RED, 0
@@ -119,19 +137,26 @@ def_inimigo_perto:      ; tabela que define o inimigo perto (largura, altura e c
     WORD    RED, 0, 0, 0, RED
 
 def_inimigo_medio:     ; tabela que define o inimigo a distancia media (largura, altura e cor dos pixeis)
-    WORD    INIMIGO_MX
-    WORD    INIMIGO_MY
+    WORD    OBJETO_MX
+    WORD    OBJETO_MY
     WORD    RED, 0, 0, RED
     WORD    RED, 0, 0, RED
     WORD    0, RED, RED, 0
     WORD    RED, 0, 0, RED
 
 def_inimigo_longe:      ; tabela que define o inimigo longe (largura, altura e cor dos pixeis)
-    WORD    INIMIGO_LX
-    WORD    INIMIGO_LY
+    WORD    OBJETO_LX
+    WORD    OBJETO_LY
     WORD    RED, 0, RED
     WORD    0, RED, 0
     WORD    RED, 0, RED
+
+distancias_inimigo:
+    WORD def_inimigo_perto
+    WORD def_inimigo_medio
+    WORD def_inimigo_longe
+    WORD def_distante
+
 ; **********************************************************************
 ; * Codigo
 ; **********************************************************************
@@ -193,7 +218,7 @@ comecar_jogo:
     MOV R2, NAVE_Y
     CALL desenha_objeto       ; desenhar rover inicial
 
-    MOV R0, def_inimigo_longe
+    MOV R0, def_muito_distante
     MOV R1, INIMIGO_X
     MOV R2, INIMIGO_Y
     CALL desenha_objeto       ; desenhar inimigo inicial
@@ -351,17 +376,17 @@ verificacao_direita:
 PROCESS sp_inimigo
 inimigo:
     MOV SP, sp_inimigo
-    MOV R0, def_inimigo_longe ; tabela que define o inimigo
+    MOV R0, def_muito_distante; tabela que define o inimigo
     MOV R1, INIMIGO_X         ;
     MOV R2, INIMIGO_Y         ;
-    MOV R3, 1                 ; o inimigo desce sempre
+    MOV R3, distancias_inimigo; o inimigo desce sempre
 loop_inimigo:
     MOV R4, [lock_inimigo]    ; ler o LOCK
 verificacao_baixo:
     MOV R4, MAX_LINHA   ; limite maximo da linha
     CMP R2, R4          ; ver se nao execedemos o limite
     JZ apagar_inimigo   ; se estivermos na ultima linha so queremos apagar o objeto
-    CALL move_inimigo
+    CALL move_objeto_y
     JMP loop_inimigo
 apagar_inimigo:
     CALL apaga_objeto
@@ -471,22 +496,38 @@ move_x:
     CALL desenha_objeto ; desenhar objeto
     RET
 
-move_inimigo:
-; move a objeto para cima ou para baixo
+move_objeto_y:
+; move um objeto (inimigo ou meteoro bom) para baixo
 ;argumentos:
 ; R0 -> endereco da tabela que define os pixeis do objeto
 ; R1 -> X
 ; R2 -> Y
-; R3 -> direcao (1 = direita, -1 = esquerda, -2 = cima, 2 = baixo)
+; R3 -> tabela que define o objeto em funcao da distancia
     PUSH R4
     CALL apaga_objeto   ; apagar objeto
-    ADD R2, R3          ; obter a nova coordenada
+    ADD R2, 1           ; obter a nova coordenada
     MOV R4, PERTO
-    CMP R2, R4          ; ja estamos perto?
+    CMP R2, R4          ; ja esta perto?
     JGE perto
+    MOV R4, MEDIO       ; esta a distancia media?
+    JGE medio
+    MOV R4, LONGE       ; esta longe?
+    JGE longe
+    MOV R4, DISTANTE    ; esta distante?
+    JGE distante
     JMP fim_move_nave
 perto:
-    MOV R0, def_inimigo_perto
+    MOV R0, [R3]
+    JMP fim_move_nave
+medio:
+    MOV R0, [R3+2]
+    JMP fim_move_nave
+longe:
+    MOV R0, [R3+4]
+    JMP fim_move_nave
+distante:
+    MOV R0, [R3+6]
+    JMP fim_move_nave
 fim_move_nave:
     CALL desenha_objeto ; desenhar objeto
     POP R4
