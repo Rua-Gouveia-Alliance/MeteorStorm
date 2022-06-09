@@ -10,12 +10,12 @@
   "primary screen width" : 1920,
   "primary screen height" : 1080,
   "window" : {
-    "X absolute" : 960,
-    "Y absolute" : 3,
-    "X relative" : 960,
-    "Y relative" : 3,
-    "width" : 960,
-    "height" : 1077,
+    "X absolute" : 0,
+    "Y absolute" : 25,
+    "X relative" : 0,
+    "Y relative" : 25,
+    "width" : 1920,
+    "height" : 1055,
     "leftRightDividerLocation" : 152,
     "topBottomDividerLocation" : 890
   },
@@ -28,7 +28,7 @@
       "sourcePinID" : 29,
       "targetPinID" : 39,
       "points" : [ {
-        "X" : 391,
+        "X" : 394,
         "Y" : 439
       }, {
         "X" : 420,
@@ -50,7 +50,7 @@
       "sourcePinID" : 30,
       "targetPinID" : 40,
       "points" : [ {
-        "X" : 391,
+        "X" : 394,
         "Y" : 459
       }, {
         "X" : 436,
@@ -392,7 +392,7 @@
       "sourcePinID" : 50,
       "targetPinID" : 74,
       "points" : [ {
-        "X" : 947,
+        "X" : 948,
         "Y" : 479
       }, {
         "X" : 1022,
@@ -455,7 +455,7 @@
         "X" : 664,
         "Y" : 539
       }, {
-        "X" : 391,
+        "X" : 394,
         "Y" : 539
       } ]
     } ]
@@ -477,7 +477,7 @@
         "X" : 664,
         "Y" : 559
       }, {
-        "X" : 391,
+        "X" : 394,
         "Y" : 559
       } ]
     } ]
@@ -499,7 +499,7 @@
         "X" : 608,
         "Y" : 579
       }, {
-        "X" : 391,
+        "X" : 394,
         "Y" : 579
       } ]
     } ]
@@ -512,7 +512,7 @@
       "sourcePinID" : 19,
       "targetPinID" : 8,
       "points" : [ {
-        "X" : 922,
+        "X" : 923,
         "Y" : 167
       }, {
         "X" : 948,
@@ -569,7 +569,7 @@
       "sourcePinID" : 86,
       "targetPinID" : 8,
       "points" : [ {
-        "X" : 922,
+        "X" : 923,
         "Y" : 311
       }, {
         "X" : 948,
@@ -622,7 +622,7 @@
         "X" : 616,
         "Y" : 525
       }, {
-        "X" : 391,
+        "X" : 394,
         "Y" : 519
       } ]
     } ]
@@ -644,7 +644,7 @@
         "X" : 592,
         "Y" : 499
       }, {
-        "X" : 391,
+        "X" : 394,
         "Y" : 499
       } ]
     } ]
@@ -657,7 +657,7 @@
       "sourcePinID" : 96,
       "targetPinID" : 2,
       "points" : [ {
-        "X" : 145,
+        "X" : 152,
         "Y" : 119
       }, {
         "X" : 192,
@@ -679,7 +679,7 @@
       "sourcePinID" : 99,
       "targetPinID" : 3,
       "points" : [ {
-        "X" : 129,
+        "X" : 132,
         "Y" : 183
       }, {
         "X" : 254,
@@ -695,7 +695,7 @@
       "sourcePinID" : 102,
       "targetPinID" : 4,
       "points" : [ {
-        "X" : 137,
+        "X" : 143,
         "Y" : 247
       }, {
         "X" : 192,
@@ -1496,7 +1496,7 @@
     "windowScreenWidthPixels" : 1024,
     "windowScreenHeightixels" : 512,
     "defaultPenColor" : 51063,
-    "image paths" : [ "background0.jpg", "background1.jpg" ],
+    "image paths" : [ "background0.jpg", "background1.jpg", "quantum_field_theory.jpg" ],
     "sounds/videos settings" : [ {
       "filePathName" : "shot_sound.wav",
       "relative sound volume" : 1.0,

@@ -20,8 +20,10 @@ SENERGIA    EQU 05H     ; maximo divisor comum do valor de energia a subtrair e 
 
 HOME        EQU 0       ; estado em que o jogo esta (home screen)
 JOGO        EQU 1       ; estado em que o jogo esta (a ser jogado)
-BACKGROUND_JOGO EQU 0   ; imagem de fundo do jogo
-BACKGROUND_HOME EQU 1   ; imagem de fundo do home screen
+MORTO       EQU 2       ; estado em que o jogo esta (jogador morto)
+BG_JOGO     EQU 0       ; imagem de fundo do jogo
+BG_HOME     EQU 1       ; imagem de fundo do home screen
+BG_ENERGIA  EQU 2       ; imagem de fundo de quando se morre por falta de energia
 
 DEL_ECRAS   EQU 6002H   ; endereco do comando para apagar todos os ecras
 SEL_LINHA   EQU 600AH   ; endereco do comando para definir a linha
@@ -47,6 +49,9 @@ NAVE_Y      EQU 28      ; linha da nave
 NAVE_LX     EQU 5       ; largura da nave
 NAVE_LY     EQU 4       ; altura da nave
 
+COMECAR     EQU 0       ; sinal para o processo de controlo, comecar jogo
+MORTE_ENG   EQU 1       ; sinal para o processo de controlo, morte por falta de energia
+
 INIMIGO_X   EQU 20      ; coluna do inimigo
 INIMIGO_Y   EQU 0       ; linha do inimigo
 OBJETO_PX   EQU 5       ; largura do inimigo/meteoro bom perto
@@ -68,6 +73,7 @@ ITER_ALEATORIO EQU 3    ; repeticoes que o ciclo para gerar um numero aleatorio 
 
 YELLOW      EQU 0FFF0H  ; cor amarelo em ARGB
 RED         EQU 0FF00H  ; cor vermelho em ARGB
+GREY        EQU 0FF00H  ; cor cinzento em ARGB
 
 ; #######################################################################
 ; * ZONA DE DADOS
@@ -127,7 +133,7 @@ ROVER_Y:
 def_muito_distante:     ; tabela que define o inimigo/metero bom muito distante (largura, altura e cor dos pixeis)
     WORD    OBJETO_MDX
     WORD    OBJETO_MDY
-    WORD    RED         ; mudar esta cor pa cinzento depois
+    WORD    GREY
 
 def_distante:     ; tabela que define o inimigo/metero bom distante (largura, altura e cor dos pixeis)
     WORD    OBJETO_DX
@@ -165,6 +171,12 @@ distancias_inimigo:
     WORD def_inimigo_longe
     WORD def_distante
 
+;distancias_meteoro:
+;    WORD def_meteoro_perto
+;    WORD def_meteoro_medio
+;    WORD def_meteoro_longe
+;    WORD def_distante
+
 ; **********************************************************************
 ; * Codigo
 ; **********************************************************************
@@ -175,7 +187,7 @@ main:
 ; setup inicial do ecra
     MOV [DEL_ECRAS], R0
     MOV [DEL_AVISO], R0         ; apaga o aviso de nenhum cenario selecionado
-    MOV R0, BACKGROUND_HOME     ; cenario de fundo do home
+    MOV R0, BG_HOME             ; cenario de fundo do home
     MOV [BACKGROUND], R0        ; seleciona o cenario de fundo
 
     MOV R0, 0
@@ -197,19 +209,16 @@ PROCESS sp_controlo
 controlo:
     MOV SP, sp_controlo
     MOV R0, [lock_controlo]     ; ler o LOCK
-    MOV R1, [estado]            ; ler o estado do jogo
-    CMP R1, HOME                ; estamos no home screen?
-    JZ home_prov
-    JMP controlo
-home_prov:
-    ; premir c para comecar
-    MOV R1, TSTART
+    MOV R1, COMECAR
     CMP R0, R1
     JZ comecar_jogo
+    MOV R1, MORTE_ENG
+    CMP R0, R1
+    JZ morte_falta_energia
     JMP controlo
 comecar_jogo:
 ; prepara o inicio do jogo
-    MOV R0, BACKGROUND_JOGO     ; cenario de fundo do jogo
+    MOV R0, BG_JOGO             ; cenario de fundo do jogo
     MOV [BACKGROUND], R0        ; seleciona o cenario de fundo
     MOV R0, JOGO                ; novo estado
     MOV [estado], R0            ; atualizar o estado do jogo
@@ -217,6 +226,12 @@ comecar_jogo:
     CALL energia                ; iniciar a energia
     CALL rover                  ; iniciar o rover
     CALL inimigo                ; iniciar o inimigo
+
+    JMP controlo
+morte_falta_energia:
+    MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
+    MOV R0, BG_ENERGIA          ; cenario de fundo da morte por falta de energia
+    MOV [BACKGROUND], R0        ; atualizar cenario de fundo
 
     JMP controlo
 
@@ -258,6 +273,7 @@ home:
     ; premir c para comecar
     MOV R0, TSTART
     CMP R5, R0
+    MOV R0, COMECAR
     JZ unlock_controlo
     JMP espera_tecla
 jogo:
@@ -299,7 +315,7 @@ largou:                 ; neste ciclo espera-se ate largar a tecla
     JNZ largou          ; se ainda houver uma tecla premida repete o loop
     JMP espera_tecla    ; volta ao da funcao
 unlock_controlo:
-    MOV [lock_controlo], R5
+    MOV [lock_controlo], R0
     JMP largou
     YIELD
 unlock_energia:
@@ -326,11 +342,34 @@ energia:
     MOV SP, sp_energia
     MOV R1, MAX_ENERGIA         ; valor inicial da energia
     CALL hex_p_dec_representacao
-    MOV [DISPLAYS], R0          ; escrever o valor inicial no ecra
 ciclo_energia:
+    MOV [DISPLAYS], R0          ; atualizar o valor no ecra
     MOV R0, [lock_energia]      ; ler o LOCK, contem o valor a adicionar ou multiplicar
-    CALL muda_energia           ; alterar a energia em funcao do calor lido
+    JMP muda_energia            ; alterar a energia em funcao do calor lido
+muda_energia:
+; mudar o valor da energia
+    MOV R2, 5
+    MUL R0, R2
+    ADD R1, R0          ; subtrair ou aumentar energia
+    MOV R3, MAX_ENERGIA
+    CMP R1, R3          ; verificar se excede o maximo
+    JLE verifica_negativo
+    MOV R1, MAX_ENERGIA ; se exceder o maximo volta a ser o maximo
+verifica_negativo:
+    CMP R1, MIN_ENERGIA ; verificar se nao e menor que o minimo
+    JGT fim_muda_energia
+    JMP morte_energia
+fim_muda_energia:
+    CALL hex_p_dec_representacao
+    MOV [DISPLAYS], R0  ; atualiza a energia nos displays
     JMP ciclo_energia
+morte_energia:
+    MOV R1, 0
+    CALL hex_p_dec_representacao
+    MOV [DISPLAYS], R0  ; evitar mostrar um valor negativo de energia
+    MOV R0, MORTE_ENG
+    MOV [lock_controlo], R0
+    RET
 
 ; **********************************************************************
 ; Processo
@@ -411,29 +450,6 @@ ciclo_delay:
     SUB R0, 1
     JNZ ciclo_delay
     POP R0
-    RET
-
-muda_energia:
-; muda o valor da energia no display
-;argumentos:
-; R0 -> -1 ou 2 consoante vamos subtrair ou adicionar energia
-; R1 -> Valor atual da energia
-    PUSH R2
-    MOV R2, 5
-    MUL R0, R2
-    ADD R1, R0          ; subtrair ou aumentar energia
-    MOV R3, MAX_ENERGIA
-    CMP R1, R3          ; verificar se excede o maximo
-    JLE verifica_negativo
-    MOV R1, MAX_ENERGIA ; se exceder o maximo volta a ser o maximo
-verifica_negativo:
-    CMP R1, MIN_ENERGIA ; verificar se nao e menor que o minimo
-    JGE fim_muda_energia
-    MOV R1, MIN_ENERGIA
-fim_muda_energia:
-    CALL hex_p_dec_representacao
-    MOV [DISPLAYS], R0  ; atualiza a energia nos displays
-    POP R2
     RET
 
 set_x:
