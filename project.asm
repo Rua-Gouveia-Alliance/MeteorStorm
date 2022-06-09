@@ -6,7 +6,7 @@ DISPLAYS    EQU 0A000H  ; endereco dos displays de 7 segmentos (periferico POUT-
 TEC_LIN     EQU 0C000H  ; endereco das linhas do teclado (periferico POUT-2)
 TEC_COL     EQU 0E000H  ; endereco das colunas do teclado (periferico PIN)
 LINHA_TEST  EQU 16      ; linha a testar (comecamos na 4a linha, mas por causa do shift right inicial inicializamos ao dobro)
-MASCARA     EQU 0FH     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
+MASCARA_MSD EQU 0FH     ; para remover os 4 bits de maior peso, ao ler as colunas do teclado
 TSTART      EQU 10000001b ; tecla para comecar o jogo
 TSUB        EQU 00010001b ; tecla para subtrair a energia
 TADD        EQU 00010010b ; tecla para adicionar a energia
@@ -63,6 +63,8 @@ DISTANTE    EQU 3       ; coordenada a partir da qual se considera distante
 LONGE       EQU 5       ; coordenada a partir da qual se considera longe
 MEDIO       EQU 9       ; coordenada a partir da qual se considera distancia media
 PERTO       EQU 14      ; coordenada a partir da qual se considera perto
+
+ITER_ALEATORIO EQU 3    ; repeticoes que o ciclo para gerar um numero aleatorio faz
 
 YELLOW      EQU 0FFF0H  ; cor amarelo em ARGB
 RED         EQU 0FF00H  ; cor vermelho em ARGB
@@ -176,9 +178,6 @@ main:
 ; executar processos
     CALL controlo
     CALL teclado
-    CALL energia
-    CALL rover
-    CALL inimigo
     MOV R0, [lock_main]
 
 ; **********************************************************************
@@ -209,19 +208,9 @@ comecar_jogo:
     MOV R0, JOGO                ; novo estado
     MOV [estado], R0            ; atualizar o estado do jogo
 
-    MOV R1, MAX_ENERGIA
-    CALL hex_p_dec_representacao
-    MOV [DISPLAYS], R0
-
-    MOV R0, def_rover
-    MOV R1, NAVE_X
-    MOV R2, NAVE_Y
-    CALL desenha_objeto       ; desenhar rover inicial
-
-    MOV R0, def_muito_distante
-    MOV R1, INIMIGO_X
-    MOV R2, INIMIGO_Y
-    CALL desenha_objeto       ; desenhar inimigo inicial
+    CALL energia                ; iniciar a energia
+    CALL rover                  ; iniciar o rover
+    CALL inimigo                ; iniciar o inimigo
 
     JMP controlo
 
@@ -234,7 +223,7 @@ comecar_jogo:
 PROCESS sp_teclado
 teclado:
     MOV SP, sp_teclado
-    MOV R2, MASCARA     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
+    MOV R2, MASCARA_MSD ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
     MOV R3, TEC_LIN     ; endereco do periferico de saida
     MOV R4, TEC_COL     ; endereco do periferico de entrada
 espera_tecla:
@@ -248,7 +237,7 @@ loop_espera:
     JZ  espera_tecla    ; reinicializar o valor da linha e recomecar o ciclo caso linha seja invalida
     MOVB [R3], R5       ; escrever no periferico de saida (linhas)
     MOVB R0, [R4]       ; ler do periferico de entrada (colunas)
-    AND R0, R2          ; elimina bits para além dos bits 0-3
+    AND R0, R2          ; elimina bits para alem dos bits 0-3
     CMP R0, 0           ; ha tecla premida?
     JZ  loop_espera     ; se nenhuma tecla premida, repete
     MOV R9, R5          ; guardar a linha
@@ -330,6 +319,8 @@ PROCESS sp_energia
 energia:
     MOV SP, sp_energia
     MOV R1, MAX_ENERGIA         ; valor inicial da energia
+    CALL hex_p_dec_representacao
+    MOV [DISPLAYS], R0          ; escrever o valor inicial no ecra
 ciclo_energia:
     MOV R0, [lock_energia]      ; ler o LOCK, contem o valor a adicionar ou multiplicar
     CALL muda_energia           ; alterar a energia em funcao do calor lido
@@ -347,6 +338,7 @@ rover:
     MOV R0, def_rover         ; tabela que define o rover
     MOV R1, NAVE_X
     MOV R2, NAVE_Y
+    CALL desenha_objeto       ; desenhar o rover inicial no ecra
 loop_rover:
     MOV R3, [lock_rover]      ; ler o LOCK, contem a direcao em que mexer o rover
     CMP R3, DIREITA           ; vamos mexer para a direita?
@@ -377,9 +369,10 @@ PROCESS sp_inimigo
 inimigo:
     MOV SP, sp_inimigo
     MOV R0, def_muito_distante; tabela que define o inimigo
-    MOV R1, INIMIGO_X         ;
-    MOV R2, INIMIGO_Y         ;
-    MOV R3, distancias_inimigo; o inimigo desce sempre
+    CALL set_x                ; gerar a coordenada aleatoria para X
+    MOV R2, INIMIGO_Y         ; o valor de Y e o topo do ecra (0)
+    MOV R3, distancias_inimigo; tabela que define o inimigo em funcao da distancia
+    CALL desenha_objeto       ; desenhar o inimigo inicial no ecra
 loop_inimigo:
     MOV R4, [lock_inimigo]    ; ler o LOCK
 verificacao_baixo:
@@ -431,6 +424,28 @@ fim_muda_energia:
     POP R2
     RET
 
+set_x:
+; atribui uma coordenada aleatoria ao X de
+; um objeto e guarda o no registo R1, nao
+; recebe argumentos
+    PUSH R0
+    PUSH R2
+    PUSH R3
+    MOV R1, 0               ; inicializamos R1 a 0 para depois somar valores aleatorios
+    MOV R2, ITER_ALEATORIO  ; R2 e um contador
+    MOV R3, TEC_COL         ; endereco do periferico de entrada
+gera_aleatorio:
+    MOVB R0, [R3]           ; ler do periferico de entrada (colunas)
+    SHR R0, 4               ; elimina bits para alem dos bits 3-7
+    ADD R1, R0              ; somar as coordenadas o valor aleatorio
+    SUB R2, 1               ; menos um ciclo a fazer
+; repetimos 3 vezes, para no maximo a coordenada gerada ser 45 e nao exceder 58 (o limite do ecra menos a largura maxima do boneco)
+    JNZ gera_aleatorio
+    POP R3
+    POP R2
+    POP R0
+    RET
+
 hex_p_dec_representacao:
 ; muda o valor hexadecimal para a sua representacao em binario
 ;argumentos (registos):
@@ -457,7 +472,7 @@ ciclo_hex_p_dec:
     MUL R3, R6      ; R3 = R3*10
     SUB R4, R3      ; R4 = R4 - R3
     SHR R0, 4       ; R0 << 4
-    MOV R5, MASCARA
+    MOV R5, MASCARA_MSD
     AND R4, R5      ; R4 & 000F
     SHL R4, 8       ; R4 << 8
     OR R0, R4       ; R0 = R0 | R4
