@@ -146,6 +146,7 @@ main:
 ; **********************************************************************
 PROCESS sp_controlo
 controlo:
+    MOV SP, sp_controlo
     MOV R0, [lock_controlo]     ; ler o LOCK
     MOV R1, [estado]            ; ler o estado do jogo
     CMP R1, HOME                ; estamos no home screen?
@@ -188,6 +189,7 @@ comecar_jogo:
 ; **********************************************************************
 PROCESS sp_teclado
 teclado:
+    MOV SP, sp_teclado
     MOV R2, MASCARA     ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
     MOV R3, TEC_LIN     ; endereco do periferico de saida
     MOV R4, TEC_COL     ; endereco do periferico de entrada
@@ -283,6 +285,7 @@ unlock_inimigo:
 ; **********************************************************************
 PROCESS sp_energia
 energia:
+    MOV SP, sp_energia
     MOV R1, MAX_ENERGIA         ; valor inicial da energia
 ciclo_energia:
     MOV R0, [lock_energia]      ; ler o LOCK, contem o valor a adicionar ou multiplicar
@@ -297,6 +300,7 @@ ciclo_energia:
 ; **********************************************************************
 PROCESS sp_rover
 rover:
+    MOV SP, sp_rover
     MOV R0, def_rover         ; tabela que define o rover
     MOV R1, NAVE_X
     MOV R2, NAVE_Y
@@ -328,6 +332,7 @@ verificacao_direita:
 ; **********************************************************************
 PROCESS sp_inimigo
 inimigo:
+    MOV SP, sp_inimigo
     MOV R0, def_inimigo       ; tabela que define o inimigo
     MOV R1, INIMIGO_X         ;
     MOV R2, INIMIGO_Y         ;
@@ -365,6 +370,9 @@ muda_energia:
 ;argumentos:
 ; R0 -> -1 ou 2 consoante vamos subtrair ou adicionar energia
 ; R1 -> Valor atual da energia
+    PUSH R2
+    MOV R2, 5
+    MUL R0, R2
     ADD R1, R0          ; subtrair ou aumentar energia
     MOV R3, MAX_ENERGIA
     CMP R1, R3          ; verificar se excede o maximo
@@ -377,6 +385,7 @@ verifica_negativo:
 fim_muda_energia:
     CALL hex_p_dec_representacao
     MOV [DISPLAYS], R0  ; atualiza a energia nos displays
+    POP R2
     RET
 
 hex_p_dec_representacao:
@@ -471,10 +480,10 @@ desenha_objeto:
     MOV R3, [R0]        ; obtem a largura do objeto
     MOV R4, [R0+2]      ; obtem a altura do objeto
     ADD R3, R1          ; coluna final
-    ADD R4, R2
-    SUB R4, 1           ; linha final
+    ADD R4, R2          ; linha final
+    SUB R4, 1
     CALL atualiza_linha ; verificar se a linha final nao excede os limites do ecra
-    MOV R7, 8
+    MOV R7, 4
     ADD R7, R0          ; endereco da cor do primeiro pixel
     MOV R5, R1          ; copia das coordenadas iniciais da coluna (esta nao e alterada)
     MOV R8, R2          ; copia das coordenadas iniciais da linha
@@ -491,13 +500,12 @@ desenha_colunas:        ; desenha os pixels do boneco a partir da tabela
     MOV R1, R5          ; reiniciar as colunas
     CMP R8, R4          ; verificar se ja tratamos da altura toda
     JLE desenha_colunas ; continuar ate tratar da altura toda
+    POP R8
     POP R7
     POP R6
     POP R5
     POP R4
     POP R3
-    POP R2
-    POP R1
     RET
 
 apaga_objeto:
@@ -514,11 +522,11 @@ apaga_objeto:
     MOV R3, [R0]        ; obtem a largura do objeto
     MOV R4, [R0+2]      ; obtem a altura do objeto
     ADD R3, R1          ; coluna final
-    ADD R4, R2
-    SUB R4, 1           ; linha final
+    ADD R4, R2          ; linha final
+    SUB R4, 1
     CALL atualiza_linha ; verificar se a linha final nao excede os limites do ecra
     MOV R5, R1          ; copia das coordenadas iniciais da coluna
-    MOV R7, R1          ; copia das coordenadas iniciais da linha
+    MOV R7, R2          ; copia das coordenadas iniciais da linha
     MOV R6, 0           ; escolhe cor 0 (apagar)
 apaga_colunas:          ; desenha os pixels do boneco a partir da tabela
     MOV [SEL_COLUNA], R1; seleciona a coluna
@@ -531,12 +539,11 @@ apaga_colunas:          ; desenha os pixels do boneco a partir da tabela
     MOV R1, R5          ; reiniciar as colunas
     CMP R7, R4          ; verificar se ja tratamos da altura toda
     JLE apaga_colunas   ; continuar ate tratar da altura toda
+    POP R7
     POP R6
     POP R5
     POP R4
     POP R3
-    POP R2
-    POP R1
     RET
 
 atualiza_linha:
