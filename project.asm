@@ -165,11 +165,11 @@ distancias_inimigo:
     WORD def_inimigo_longe
     WORD def_distante
 
-distancias_meteoro:
-    WORD def_meteoro_perto
-    WORD def_meteoro_medio
-    WORD def_meteoro_longe
-    WORD def_distante
+;distancias_meteoro:
+;    WORD def_meteoro_perto
+;    WORD def_meteoro_medio
+;    WORD def_meteoro_longe
+;    WORD def_distante
 
 ; **********************************************************************
 ; * Codigo
@@ -181,7 +181,7 @@ main:
 ; setup inicial do ecra
     MOV [DEL_ECRAS], R0
     MOV [DEL_AVISO], R0         ; apaga o aviso de nenhum cenario selecionado
-    MOV R0, BACKGROUND_HOME     ; cenario de fundo do home
+    MOV R0, BG_HOME             ; cenario de fundo do home
     MOV [BACKGROUND], R0        ; seleciona o cenario de fundo
 
     MOV R0, 0
@@ -208,7 +208,7 @@ controlo:
     JZ comecar_jogo
     MOV R1, MORTE_ENG
     CMP R0, R1
-    JZ morte_energia
+    JZ morte_falta_energia
     JMP controlo
 comecar_jogo:
 ; prepara o inicio do jogo
@@ -222,10 +222,10 @@ comecar_jogo:
     CALL inimigo                ; iniciar o inimigo
 
     JMP controlo
-morte_energia:
+morte_falta_energia:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
     MOV R0, BG_ENERGIA          ; cenario de fundo da morte por falta de energia
-    MOV [BACKGROUND], RO        ; atualizar cenario de fundo
+    MOV [BACKGROUND], R0        ; atualizar cenario de fundo
 
     JMP controlo
 
@@ -356,12 +356,13 @@ verifica_negativo:
 fim_muda_energia:
     CALL hex_p_dec_representacao
     MOV [DISPLAYS], R0  ; atualiza a energia nos displays
-    JMP muda_energia
+    JMP ciclo_energia
 morte_energia:
     MOV R1, 0
     CALL hex_p_dec_representacao
     MOV [DISPLAYS], R0  ; evitar mostrar um valor negativo de energia
-    MOV [lock_controlo], MORTE_ENG
+    MOV R0, MORTE_ENG
+    MOV [lock_controlo], R0
     RET
 
 ; **********************************************************************
