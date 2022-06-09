@@ -509,11 +509,14 @@ move_objeto_y:
     MOV R4, PERTO
     CMP R2, R4          ; ja esta perto?
     JGE perto
-    MOV R4, MEDIO       ; esta a distancia media?
+    MOV R4, MEDIO
+    CMP R2, R4          ; esta a distancia media?
     JGE medio
-    MOV R4, LONGE       ; esta longe?
+    MOV R4, LONGE
+    CMP R2, R4          ; esta longe?
     JGE longe
-    MOV R4, DISTANTE    ; esta distante?
+    MOV R4, DISTANTE
+    CMP R2, R4          ; esta distante?
     JGE distante
     JMP fim_move_nave
 perto:
