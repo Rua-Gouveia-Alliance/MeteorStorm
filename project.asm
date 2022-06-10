@@ -449,6 +449,8 @@ inimigo:
     CALL desenha_objeto       ; desenhar o inimigo inicial no ecra
 loop_inimigo:
     MOV R4, [lock_inimigo]    ; ler o LOCK
+    CMP R4, MORTO             ; o rover morreu?
+    JZ elimina_inimigo
 verificacao_baixo:
     MOV R4, MAX_LINHA   ; limite maximo da linha
     CMP R2, R4          ; ver se nao execedemos o limite
