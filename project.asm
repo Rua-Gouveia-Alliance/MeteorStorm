@@ -51,6 +51,7 @@ NAVE_LY     EQU 4       ; altura da nave
 
 COMECAR     EQU 0       ; sinal para o processo de controlo, comecar jogo
 MORTE_ENG   EQU 1       ; sinal para o processo de controlo, morte por falta de energia
+MORTE_COL   EQU 1       ; sinal para o processo de controlo, morte por colisao
 
 INIMIGO_X   EQU 20      ; coluna do inimigo
 INIMIGO_Y   EQU 0       ; linha do inimigo
@@ -427,11 +428,14 @@ verificacao_baixo:
     CMP R2, R4          ; ver se nao execedemos o limite
     JZ apagar_inimigo   ; se estivermos na ultima linha so queremos apagar o objeto
     CALL move_objeto_y
-    MOV R4, [def_rover]
+    MOV R4, def_rover
     MOV R5, [ROVER_X]
     MOV R6, [ROVER_Y]
     CALL verifica_colisao
-    JMP loop_inimigo
+    CMP R7, 0
+    JZ loop_inimigo
+    MOV R7, MORTE_COL
+    MOV [lock_controlo], R7
 apagar_inimigo:
     CALL apaga_objeto
     RET
@@ -628,8 +632,6 @@ fim_verifica_colisao:
     POP R2
     POP R1
     RET
-    
-
 
 desenha_objeto:
 ; desenha um objeto
@@ -643,6 +645,7 @@ desenha_objeto:
     PUSH R6
     PUSH R7
     PUSH R8
+    PUSH R9
     MOV R3, [R0]        ; obtem a largura do objeto
     MOV R4, [R0+2]      ; obtem a altura do objeto
     ADD R3, R1          ; coluna final
@@ -666,6 +669,7 @@ desenha_colunas:        ; desenha os pixels do boneco a partir da tabela
     MOV R1, R5          ; reiniciar as colunas
     CMP R8, R4          ; verificar se ja tratamos da altura toda
     JLE desenha_colunas ; continuar ate tratar da altura toda
+    POP R9
     POP R8
     POP R7
     POP R6
