@@ -117,6 +117,11 @@ lock_main:
 estado:
     WORD HOME           ; estado do jogo
 
+tab_int:                ; tabela de interrupcoes
+    WORD int_meteoros
+    WORD int_missil
+    WORD int_energia
+
 def_rover:              ; tabela que define o rover (largura, altura e cor dos pixeis)
     WORD    NAVE_LX
     WORD    NAVE_LY
@@ -185,6 +190,7 @@ PLACE      0
 main:
 ; inicializacoes
     MOV SP, sp_main             ; inicializar o stack pointer com o endereco 1200H
+    MOV BTE, tab_int            ; inicializar BTE (registo de Base da Tabela de Exceções)
 ; setup inicial do ecra
     MOV [DEL_ECRAS], R0
     MOV [DEL_AVISO], R0         ; apaga o aviso de nenhum cenario selecionado
@@ -193,7 +199,11 @@ main:
 
     MOV R0, 0
     MOV [DISPLAYS], R0          ; setup inicial do display
-
+; permitir interrupcoes
+    EI0                         ; permitir interrupcoes 0
+    EI1                         ; permitir interrupcoes 1
+    EI2                         ; permitir interrupcoes 2
+    EI                          ; permitir interrupcoes (geral)
 ; executar processos
     CALL controlo
     CALL teclado
@@ -439,6 +449,26 @@ verificacao_baixo:
 apagar_inimigo:
     CALL apaga_objeto
     RET
+
+; **********************************************************************
+; * Rotinas de interrupcoes
+; **********************************************************************
+
+int_meteoros:
+    PUSH R0
+    MOV R0, [estado]
+    CMP R0, JOGO
+    JNZ fim_int_meteoros
+    MOV [lock_inimigo], R0
+fim_int_meteoros:
+    POP R0
+    RFE
+
+int_missil:
+    RFE
+
+int_energia:
+    RFE
 
 ; **********************************************************************
 ; * Rotinas
