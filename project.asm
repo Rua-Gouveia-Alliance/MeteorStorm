@@ -753,28 +753,30 @@ verifica_colisao:
     PUSH R6
     PUSH R7
     PUSH R9
-; encontrar o centro do obj1
-    MOV R9, [R0]    ; obter a largura
-    SHR R9, 1       ; dividir a largura por 2
-    ADD R1, R9      ; adicionar a atual posicao
-    MOV R9, [R0+2]  ; obter a altura
-    SHR R9, 1       ; dividir a altura por 2
-    ADD R2, R9      ; adicionar a atual posicao
+; adicionar largura ao X do obj2 e altura ao Y do obj2
+    MOV R9, [R5]    ; obter largura do obj2
+    ADD R6, R9      ; adicionar a atual posicao
+    MOV R9, [R5+2]  ; obter a altura do obj2
+    ADD R7, R9      ; adicionar a atual posicao
 ; comparacoes
-    CMP R1, R6      ; comparar se o centro esta a direita do X do obj2
-    JLT nao_colidiu ; se nao estiver, nao colidiram
-    CMP R2, R7      ; comparar se o centro esta abaixo do Y do obj2
-    JLT nao_colidiu ; se nao estiver, nao colidiram
-; obter coordenadas do canto inferior direito do obj2
-    MOV R9, [R5]    ; obter a largura
-    ADD R6, R9      ; adicionar ao atual X
-    MOV R9, [R5+2]  ; obter a altura
-    ADD R7, R9      ; adicionar ao atual Y
+    CMP R1, R6      ; comparar se o X do obj1 esta a direita do X+largura do obj2
+    JGE nao_colidiu ; se estiver nao colidiram
+    CMP R2, R7      ; comparar se o Y do obj1 esta abaixo do Y+altura do obj2
+    JGE nao_colidiu ; se estiver nao colidiram
+; reverter X e Y do obj2
+    SUB R7, R9
+    MOV R9, [R5]
+    SUB R6, R9
+; adicionar largura ao X do obj1 e altura ao Y do obj1
+    MOV R9, [R0]    ; obter largura do obj1
+    ADD R1, R9      ; adicionar a atual posicao
+    MOV R9, [R0+2]  ; obter a altura do obj1
+    ADD R2, R9      ; adicionar a atual posicao
 ; comparacoes 2
-    CMP R1, R6      ; comparar se o centro esta a esquerda do X+largura do obj2
-    JGT nao_colidiu ; se nao estiver, nao colidiram
-    CMP R2, R7      ; comparar se o centro esta abaixo do Y+altura do obj2
-    JGT nao_colidiu ; se nao estiver, nao colidiram
+    CMP R1, R6      ; comparar se o X+largura do obj1 esta a esquerda do X do obj2
+    JLE nao_colidiu ; se estiver nao colidiram
+    CMP R2, R7      ; comparar se o Y+altura do obj1 esta acima do Y do obj2
+    JLE nao_colidiu ; se estiver nao colidiram
     MOV R8, TRUE    ; se chegou aqui houve colisao
     JMP fim_verifica_colisao
 nao_colidiu:
