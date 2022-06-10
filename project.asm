@@ -74,8 +74,8 @@ INIMIGO     EQU 1       ; codigo para gerar um inimigo (processo objetos)
 ITER_ALEATORIO EQU 3    ; repeticoes que o ciclo para gerar um numero aleatorio faz
 
 RED         EQU 0FF00H  ; cor vermelho em ARGB
-GREY        EQU 0FF00H  ; cor cinzento em ARGB
-GREEN       EQU 0FF00H  ; cor verde em ARGB
+GREY        EQU 0FFFFH  ; cor cinzento em ARGB
+GREEN       EQU 0F0F0H  ; cor verde em ARGB
 YELLOW      EQU 0FFF0H  ; cor amarelo em ARGB
 
 TRUE        EQU 1       ; valor boleano
@@ -145,16 +145,16 @@ escolhe_objeto:
 ; tabela que tem meteoros bons e inimigos para ajudar a determinar de forma pseudo aleatoria
 ; qual dos dois e gerado
     WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
+    WORD    METEORO_BOM
     WORD    INIMIGO
     WORD    INIMIGO
     WORD    INIMIGO
     WORD    METEORO_BOM
-    WORD    METEORO_BOM
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
     WORD    METEORO_BOM
 
 def_muito_distante:     ; tabela que define o inimigo/metero bom muito distante (largura, altura e cor dos pixeis)
@@ -165,8 +165,8 @@ def_muito_distante:     ; tabela que define o inimigo/metero bom muito distante 
 def_distante:           ; tabela que define o inimigo/metero bom distante (largura, altura e cor dos pixeis)
     WORD    OBJETO_DX
     WORD    OBJETO_DY
-    WORD    RED, RED    ; mudar esta cor pa cinzento depois
-    WORD    RED, RED    ; mudar esta cor pa cinzento depois
+    WORD    GREY, GREY
+    WORD    GREY, GREY
 
 def_inimigo_perto:      ; tabela que define o inimigo perto (largura, altura e cor dos pixeis)
     WORD    OBJETO_PX
@@ -504,13 +504,13 @@ objeto:
     MOV R2, OBJETO_Y          ; o valor de Y e o topo do ecra (0)
     CALL desenha_objeto       ; desenhar o objeto inicial no ecra
     CALL gera_indice          ; decidir se o objeto e um inimigo ou um meteoro bom
-    CMP R4, METEORO_BOM       ; calhou um meteoro bom?
-    JZ meteoro_bom
-inimigo:
-    MOV R3, distancias_inimigo; tabela que define o inimigo em funcao da distancia
-    JMP loop_objeto
+    CMP R4, INIMIGO           ; calhou um inimigo bom?
+    JZ inimigo
 meteoro_bom:
     MOV R3, distancias_meteoro; tabela que define o meteoro bom em funcao da distancia
+    JMP loop_objeto
+inimigo:
+    MOV R3, distancias_inimigo; tabela que define o inimigo em funcao da distancia
 loop_objeto:
     MOV R5, [lock_objeto]     ; ler o LOCK
     CMP R5, MORTO             ; o rover morreu?
@@ -531,6 +531,8 @@ move_baixo:
 colisao_meteoro_bom:
     MOV R5, 2
     MOV [lock_energia], R5    ; aumentar a energia do rover
+    MOV R5, 0
+    MOV [lock_rover], R5      ; redesenhar o rover no sitio, repor os pixeis apagados pela colisao
     JMP elimina_objeto        ; eliminar este objeto gerando um novo
 colisao_inimigo:
     MOV R5, MORTE_COL
