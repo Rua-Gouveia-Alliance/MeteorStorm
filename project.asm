@@ -245,11 +245,17 @@ morte_falta_energia:
     MOV R0, BG_ENERGIA          ; cenario de fundo da morte por falta de energia
     MOV [BACKGROUND], R0        ; atualizar cenario de fundo
 
+    MOV R0, MORTO
+    MOV [estado], R0            ; atualizar estado
+
     JMP controlo
 morte_colisao:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
     MOV R0, BG_COLISAO          ; cenario de fundo da morte por falta de energia
     MOV [BACKGROUND], R0        ; atualizar cenario de fundo
+
+    MOV R0, MORTO
+    MOV [estado], R0            ; atualizar estado
 
     JMP controlo
 
