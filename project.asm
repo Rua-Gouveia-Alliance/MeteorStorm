@@ -17,7 +17,7 @@ SENERGIA    EQU 05H     ; maximo divisor comum do valor de energia a subtrair e 
 
 HOME        EQU 0       ; estado em que o jogo esta (home screen)
 JOGO        EQU 1       ; estado em que o jogo esta (a ser jogado)
-MORTO       EQU 2       ; estado em que o jogo esta (jogador morto)
+MORTO       EQU 3       ; estado em que o jogo esta (jogador morto)
 BG_JOGO     EQU 0       ; imagem de fundo do jogo
 BG_HOME     EQU 1       ; imagem de fundo do home screen
 BG_ENERGIA  EQU 2       ; imagem de fundo de quando se morre por falta de energia
@@ -260,6 +260,7 @@ morte_colisao:
     MOV [estado], R0            ; atualizar estado
 
     MOV [lock_rover], R0        ; eliminar o rover
+    MOV [lock_energia], R0      ; sinalizar a energia de que o rover morreu
 
     JMP controlo
 
@@ -358,7 +359,9 @@ energia:
     CALL hex_p_dec_representacao
 ciclo_energia:
     MOV [DISPLAYS], R0          ; atualizar o valor no ecra
-    MOV R0, [lock_energia]      ; ler o LOCK, contem o valor a adicionar ou multiplicar
+    MOV R0, [lock_energia]      ; ler o LOCK, contem o valor a adicionar ou multiplicar, ou o sinal de que o rover morreu
+    CMP R0, MORTO               ; o rover morreu?
+    JZ elimina_energia
     JMP muda_energia            ; alterar a energia em funcao do calor lido
 muda_energia:
 ; mudar o valor da energia
@@ -383,6 +386,11 @@ morte_energia:
     MOV [DISPLAYS], R0  ; evitar mostrar um valor negativo de energia
     MOV R0, MORTE_ENG
     MOV [lock_controlo], R0
+    RET
+elimina_energia:
+    MOV R1, 0
+    CALL hex_p_dec_representacao
+    MOV [DISPLAYS], R0  ; mostrar 0 de energia enquanto nao estamos a jogar o jogo
     RET
 
 ; **********************************************************************
