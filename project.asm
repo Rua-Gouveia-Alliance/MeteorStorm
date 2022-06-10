@@ -248,14 +248,18 @@ morte_falta_energia:
     MOV R0, MORTO
     MOV [estado], R0            ; atualizar estado
 
+    MOV [lock_rover], R0        ; eliminar o rover
+
     JMP controlo
 morte_colisao:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
-    MOV R0, BG_COLISAO          ; cenario de fundo da morte por falta de energia
+    MOV R0, BG_COLISAO          ; cenario de fundo da morte por colisao
     MOV [BACKGROUND], R0        ; atualizar cenario de fundo
 
     MOV R0, MORTO
     MOV [estado], R0            ; atualizar estado
+
+    MOV [lock_rover], R0        ; eliminar o rover
 
     JMP controlo
 
@@ -398,14 +402,16 @@ loop_rover:
     MOV [ROVER_X], R1         ; atualizar posicao do rover global
     MOV [ROVER_Y], R2
     MOV R3, [lock_rover]      ; ler o LOCK, contem a direcao em que mexer o rover
+    CMP R3, MORTO             ; o rover morreu?
+    JZ elimina_rover
     CMP R3, DIREITA           ; vamos mexer para a direita?
-    JZ verificacao_direita
-verificacao_esquerda:
+    JZ move_direita
+move_esquerda:
     CMP R1, MIN_COLUNA        ; verifica se ja esta na posicao mais a esquerda
     JZ loop_rover             ; se sim nao fazemos nada
     CALL move_x
     JMP loop_rover
-verificacao_direita:
+move_direita:
     ; verifica se ja esta no canto do ecra (direita)
     MOV R5, [R0]        ; obtem largura da nave
     MOV R4, R1          ; copiar a coordenada X
@@ -415,6 +421,9 @@ verificacao_direita:
     JGT loop_rover      ; se ja estiver nao se mexe
     CALL move_x
     JMP loop_rover
+elimina_rover:
+    CALL apaga_objeto
+    RET
 
 ; **********************************************************************
 ; Processo
@@ -435,7 +444,7 @@ loop_inimigo:
 verificacao_baixo:
     MOV R4, MAX_LINHA   ; limite maximo da linha
     CMP R2, R4          ; ver se nao execedemos o limite
-    JZ apagar_inimigo   ; se estivermos na ultima linha so queremos apagar o objeto
+    JZ elimina_inimigo  ; se estivermos na ultima linha so queremos apagar o objeto
     CALL move_objeto_y
     MOV R4, def_rover
     MOV R5, [ROVER_X]
@@ -445,7 +454,7 @@ verificacao_baixo:
     JZ loop_inimigo
     MOV R7, MORTE_COL
     MOV [lock_controlo], R7
-apagar_inimigo:
+elimina_inimigo:
     CALL apaga_objeto
     RET
 
