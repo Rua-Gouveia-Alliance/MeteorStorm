@@ -283,7 +283,7 @@ comecar_jogo:
 
     CALL energia                ; iniciar a energia
     CALL rover                  ; iniciar o rover
-    CALL inimigo                ; iniciar o inimigo
+    CALL objeto                 ; iniciar o objeto
 
     JMP controlo
 morte_falta_energia:
