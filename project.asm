@@ -8,11 +8,8 @@ TEC_COL     EQU 0E000H  ; endereco das colunas do teclado (periferico PIN)
 LINHA_TEST  EQU 16      ; linha a testar (comecamos na 4a linha, mas por causa do shift right inicial inicializamos ao dobro)
 MASCARA_MSD EQU 0FH     ; para remover os 4 bits de maior peso, ao ler as colunas do teclado
 TSTART      EQU 10000001b ; tecla para comecar o jogo
-TSUB        EQU 00010001b ; tecla para subtrair a energia
-TADD        EQU 00010010b ; tecla para adicionar a energia
 TMOVESQ     EQU 10000001b ; tecla para mover nave para a esquerda
 TMOVDIR     EQU 10000100b ; tecla para mover nave para a direita
-TMOVINIM    EQU 01000010b ; tecla para mover meteoro para baixo
 
 MAX_ENERGIA EQU 064H    ; valor inicial da energia e maximo
 MIN_ENERGIA EQU 0       ; valor minimo da energia
@@ -247,6 +244,8 @@ morte_falta_energia:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
     MOV R0, BG_ENERGIA          ; cenario de fundo da morte por falta de energia
     MOV [BACKGROUND], R0        ; atualizar cenario de fundo
+
+    JMP controlo
 morte_colisao:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
     MOV R0, BG_COLISAO          ; cenario de fundo da morte por falta de energia
@@ -296,18 +295,6 @@ home:
     JZ unlock_controlo
     JMP espera_tecla
 jogo:
-    ; caso subtrai_energia
-    MOV R0, TSUB        ; agora R0 tem as coordenadas da tecla que subtrai a energia
-    CMP R5, R0          ; verifica se carregamos nessa tecla
-    MOV R0, -1          ; -1 porque queremos que muda_energia subtraia
-    JZ unlock_energia   ; efetuar a operacao caso tenha sido pressionada
-
-    ; caso adiciona_energia
-    MOV R0, TADD        ; agora R0 tem as coordenadas da tecla que adiciona a energia
-    CMP R5, R0          ; verifica se carregamos nessa tecla
-    MOV R0, 2           ; 2 porque queremos que muda_energia adicione 10 (2*5)
-    JZ unlock_energia   ; efetuar a operacao caso tenha sido pressionada
-
     ; caso move para esquerda
     MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
     CMP R5, R0          ; verifica se carregamos nessa tecla
@@ -319,11 +306,6 @@ jogo:
     CMP R5, R0          ; verifica se carregamos nessa tecla
     MOV R0, 1           ; prepara argumento para move_nave (1 para direita)
     JZ unlock_rover     ; efetuar a operacao caso tenha sido pressionada
-
-    ; caso move inimigo para baixo
-    MOV R0, TMOVINIM
-    CMP R5, R0
-    JZ unlock_inimigo
 
     JMP espera_tecla
 largou:                 ; neste ciclo espera-se ate largar a tecla
@@ -337,18 +319,11 @@ unlock_controlo:
     MOV [lock_controlo], R0
     JMP largou
     YIELD
-unlock_energia:
-    MOV [lock_energia], R0
-    JMP largou
-    YIELD
 unlock_rover:
     MOV [lock_rover], R0
     YIELD
     CALL delay
     JMP espera_tecla
-unlock_inimigo:
-    MOV [lock_inimigo], R0
-    JMP largou
 
 ; **********************************************************************
 ; Processo
@@ -476,6 +451,14 @@ int_missil:
     RFE
 
 int_energia:
+    PUSH R0
+    MOV R0, [estado]
+    CMP R0, JOGO
+    JNZ fim_int_energia
+    MOV R0, -1
+    MOV [lock_energia], R0
+fim_int_energia:
+    POP R0
     RFE
 
 ; **********************************************************************
