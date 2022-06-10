@@ -293,8 +293,18 @@ loop_espera:
     JZ home
     CMP R0, JOGO        ; estamos a jogar o jogo?
     JZ jogo
+    CMP R0, MORTO
+    JZ morto
 home:
     ; premir c para comecar
+    MOV R0, TSTART
+    CMP R5, R0
+    MOV R0, COMECAR
+    JZ unlock_controlo
+    JMP espera_tecla
+morto:
+    ; premir c para reiniciar o jogo
+    ; !!!!!! nao funciona bem porque nao esta a eliminar o rover anterior e a dar reset as variaveis !!!!!!
     MOV R0, TSTART
     CMP R5, R0
     MOV R0, COMECAR
