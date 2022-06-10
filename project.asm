@@ -24,6 +24,7 @@ MORTO       EQU 2       ; estado em que o jogo esta (jogador morto)
 BG_JOGO     EQU 0       ; imagem de fundo do jogo
 BG_HOME     EQU 1       ; imagem de fundo do home screen
 BG_ENERGIA  EQU 2       ; imagem de fundo de quando se morre por falta de energia
+BG_COLISAO  EQU 3       ; imagem de fundo de quando se morre por colisao
 
 DEL_ECRAS   EQU 6002H   ; endereco do comando para apagar todos os ecras
 SEL_LINHA   EQU 600AH   ; endereco do comando para definir a linha
@@ -51,7 +52,7 @@ NAVE_LY     EQU 4       ; altura da nave
 
 COMECAR     EQU 0       ; sinal para o processo de controlo, comecar jogo
 MORTE_ENG   EQU 1       ; sinal para o processo de controlo, morte por falta de energia
-MORTE_COL   EQU 1       ; sinal para o processo de controlo, morte por colisao
+MORTE_COL   EQU 2       ; sinal para o processo de controlo, morte por colisao
 
 INIMIGO_X   EQU 20      ; coluna do inimigo
 INIMIGO_Y   EQU 0       ; linha do inimigo
@@ -226,6 +227,9 @@ controlo:
     MOV R1, MORTE_ENG
     CMP R0, R1
     JZ morte_falta_energia
+    MOV R1, MORTE_COL
+    CMP R0, R1
+    JZ morte_colisao
     JMP controlo
 comecar_jogo:
 ; prepara o inicio do jogo
@@ -242,6 +246,10 @@ comecar_jogo:
 morte_falta_energia:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
     MOV R0, BG_ENERGIA          ; cenario de fundo da morte por falta de energia
+    MOV [BACKGROUND], R0        ; atualizar cenario de fundo
+morte_colisao:
+    MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
+    MOV R0, BG_COLISAO          ; cenario de fundo da morte por falta de energia
     MOV [BACKGROUND], R0        ; atualizar cenario de fundo
 
     JMP controlo
