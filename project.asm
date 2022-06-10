@@ -30,7 +30,8 @@ SEL_PIXEL   EQU 6012H   ; endereco do comando para escrever um pixel
 DEL_AVISO   EQU 6040H   ; endereco do comando para apagar o aviso de nenhum cenario selecionado
 BACKGROUND  EQU 6042H   ; endereco do comando para selecionar uma imagem de fundo
 
-TIRO        EQU 0       ; som do tiro
+OBJETO      EQU 1       ; sinaliza o gestor de objetos que queremos criar um meteoro ou nave
+TIRO        EQU 0       ; som do tiro, tambem sinaliza o gestor de objetos que queremos criar um tiro
 PLAY_SOM    EQU 605AH   ; endereco do comando para reproduzir um som
 
 MIN_COLUNA  EQU 0       ; numero da coluna mais a esquerda que o objeto pode ocupar
@@ -115,7 +116,7 @@ lock_rover:             ; variavel para controlar o processo rover
 lock_objeto:            ; variavel para controlar o processo objeto
     LOCK    0
 
-lock_main:
+lock_gere_objetos:
     LOCK    0
 
 estado:
@@ -143,25 +144,25 @@ ROVER_Y:
 escolhe_objeto:
 ; tabela que tem meteoros bons e inimigos para ajudar a determinar de forma pseudo aleatoria
 ; qual dos dois e gerado
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
     WORD    METEORO_BOM
     WORD    METEORO_BOM
     WORD    METEORO_BOM
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
 
 def_muito_distante:     ; tabela que define o inimigo/metero bom muito distante (largura, altura e cor dos pixeis)
     WORD    OBJETO_MDX
     WORD    OBJETO_MDY
     WORD    GREY
 
-def_distante:     ; tabela que define o inimigo/metero bom distante (largura, altura e cor dos pixeis)
+def_distante:           ; tabela que define o inimigo/metero bom distante (largura, altura e cor dos pixeis)
     WORD    OBJETO_DX
     WORD    OBJETO_DY
     WORD    RED, RED    ; mudar esta cor pa cinzento depois
@@ -176,7 +177,7 @@ def_inimigo_perto:      ; tabela que define o inimigo perto (largura, altura e c
     WORD    RED, 0, RED, 0, RED
     WORD    RED, 0, 0, 0, RED
 
-def_inimigo_medio:     ; tabela que define o inimigo a distancia media (largura, altura e cor dos pixeis)
+def_inimigo_medio:      ; tabela que define o inimigo a distancia media (largura, altura e cor dos pixeis)
     WORD    OBJETO_MX
     WORD    OBJETO_MY
     WORD    RED, 0, 0, RED
@@ -206,7 +207,7 @@ def_meteoro_perto:      ; tabela que define o meteoro bom perto (largura, altura
     WORD    GREEN, GREEN, GREEN, GREEN, GREEN
     WORD    0, GREEN, GREEN, GREEN, 0
 
-def_meteoro_medio:     ; tabela que define o meteoro bom a distancia media (largura, altura e cor dos pixeis)
+def_meteoro_medio:      ; tabela que define o meteoro bom a distancia media (largura, altura e cor dos pixeis)
     WORD    OBJETO_MX
     WORD    OBJETO_MY
     WORD    0, GREEN, GREEN, 0
@@ -251,7 +252,15 @@ main:
 ; executar processos
     CALL controlo
     CALL teclado
-    MOV R0, [lock_main]
+; o resto do programa principal e tambem um processo, que gere os objetos
+gere_objetos:
+    MOV R0, [lock_gere_objetos]
+    CMP R0, OBJETO
+    JZ cria_objeto
+cria_objeto:
+    CALL objeto
+    JMP gere_objetos
+
 
 ; **********************************************************************
 ; Processo
@@ -283,7 +292,8 @@ comecar_jogo:
 
     CALL energia                ; iniciar a energia
     CALL rover                  ; iniciar o rover
-    CALL objeto                 ; iniciar o objeto
+    MOV R0, OBJETO
+    MOV [lock_gere_objetos], R0 ; criar um objeto novo
 
     JMP controlo
 morte_falta_energia:
@@ -295,6 +305,7 @@ morte_falta_energia:
     MOV [estado], R0            ; atualizar estado
 
     MOV [lock_rover], R0        ; eliminar o rover
+    MOV [lock_objeto], R0       ; eliminar o objeto
 
     JMP controlo
 morte_colisao:
@@ -526,7 +537,8 @@ colisao_inimigo:
     MOV [lock_controlo], R5
     JMP elimina_objeto_morte  ; eliminar um objeto sem gerar um novo
 elimina_objeto:
-    CALL objeto               ; gerar um objeto novo
+    MOV R5, OBJETO
+    MOV [lock_gere_objetos], R5 ; queremos criar um novo objeto
 elimina_objeto_morte:
     CALL apaga_objeto         ; apagar o objeto do ecra
     RET
