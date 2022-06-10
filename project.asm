@@ -51,8 +51,7 @@ COMECAR     EQU 0       ; sinal para o processo de controlo, comecar jogo
 MORTE_ENG   EQU 1       ; sinal para o processo de controlo, morte por falta de energia
 MORTE_COL   EQU 2       ; sinal para o processo de controlo, morte por colisao
 
-INIMIGO_X   EQU 20      ; coluna do inimigo
-INIMIGO_Y   EQU 0       ; linha do inimigo
+OBJETO_Y    EQU 0       ; linha do inimigo
 OBJETO_PX   EQU 5       ; largura do inimigo/meteoro bom perto
 OBJETO_PY   EQU 5       ; altura do inimigo/meteoro bom perto
 OBJETO_MX   EQU 4       ; largura do inimigo/meteoro bom a distancia media
@@ -68,11 +67,18 @@ LONGE       EQU 5       ; coordenada a partir da qual se considera longe
 MEDIO       EQU 9       ; coordenada a partir da qual se considera distancia media
 PERTO       EQU 14      ; coordenada a partir da qual se considera perto
 
+METEORO_BOM EQU 0       ; codigo para gerar um meteoro bom (processo objetos)
+INIMIGO     EQU 1       ; codigo para gerar um inimigo (processo objetos)
+
 ITER_ALEATORIO EQU 3    ; repeticoes que o ciclo para gerar um numero aleatorio faz
 
-YELLOW      EQU 0FFF0H  ; cor amarelo em ARGB
 RED         EQU 0FF00H  ; cor vermelho em ARGB
 GREY        EQU 0FF00H  ; cor cinzento em ARGB
+GREEN       EQU 0FF00H  ; cor verde em ARGB
+YELLOW      EQU 0FFF0H  ; cor amarelo em ARGB
+
+TRUE        EQU 1       ; valor boleano
+FALSE       EQU 0       ; valor boleano
 
 ; #######################################################################
 ; * ZONA DE DADOS
@@ -94,8 +100,8 @@ sp_energia:
     STACK 100H          ; espaco reservado para a stack do processo que trata do rover
 sp_rover:
 
-    STACK 100H          ; espaco reservado para a stack do processo que trata do inimigo
-sp_inimigo:
+    STACK 100H          ; espaco reservado para a stack do processo que trata dos objetos (meteoros bons e inimigos)
+sp_objeto:
 
 lock_controlo:          ; variavel para controlar o processo controlo
     LOCK    0
@@ -106,7 +112,7 @@ lock_energia:           ; variavel para controlar o processo energia
 lock_rover:             ; variavel para controlar o processo rover
     LOCK    0
 
-lock_inimigo:           ; variavel para controlar o processo inimigo
+lock_objeto:            ; variavel para controlar o processo objeto
     LOCK    0
 
 lock_main:
@@ -133,6 +139,22 @@ ROVER_X:
 
 ROVER_Y:
     WORD    NAVE_Y
+
+escolhe_objeto:
+; tabela que tem meteoros bons e inimigos para ajudar a determinar de forma pseudo aleatoria
+; qual dos dois e gerado
+    WORD    METEORO_BOM
+    WORD    METEORO_BOM
+    WORD    METEORO_BOM
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
+    WORD    INIMIGO
 
 def_muito_distante:     ; tabela que define o inimigo/metero bom muito distante (largura, altura e cor dos pixeis)
     WORD    OBJETO_MDX
@@ -175,11 +197,35 @@ distancias_inimigo:
     WORD def_inimigo_longe
     WORD def_distante
 
-;distancias_meteoro:
-;    WORD def_meteoro_perto
-;    WORD def_meteoro_medio
-;    WORD def_meteoro_longe
-;    WORD def_distante
+def_meteoro_perto:      ; tabela que define o meteoro bom perto (largura, altura e cor dos pixeis)
+    WORD    OBJETO_PX
+    WORD    OBJETO_PY
+    WORD    0, GREEN, GREEN, GREEN, 0
+    WORD    GREEN, GREEN, GREEN, GREEN, GREEN
+    WORD    GREEN, GREEN, GREEN, GREEN, GREEN
+    WORD    GREEN, GREEN, GREEN, GREEN, GREEN
+    WORD    0, GREEN, GREEN, GREEN, 0
+
+def_meteoro_medio:     ; tabela que define o meteoro bom a distancia media (largura, altura e cor dos pixeis)
+    WORD    OBJETO_MX
+    WORD    OBJETO_MY
+    WORD    0, GREEN, GREEN, 0
+    WORD    GREEN, GREEN, GREEN, GREEN
+    WORD    GREEN, GREEN, GREEN, GREEN
+    WORD    0, GREEN, GREEN, 0
+
+def_meteoro_longe:      ; tabela que define o meteoro bom longe (largura, altura e cor dos pixeis)
+    WORD    OBJETO_LX
+    WORD    OBJETO_LY
+    WORD    0, GREEN, 0
+    WORD    GREEN, GREEN, GREEN
+    WORD    0, GREEN, 0
+
+distancias_meteoro:
+    WORD def_meteoro_perto
+    WORD def_meteoro_medio
+    WORD def_meteoro_longe
+    WORD def_distante
 
 ; **********************************************************************
 ; * Codigo
@@ -383,7 +429,7 @@ fim_muda_energia:
 morte_energia:
     MOV R1, 0
     CALL hex_p_dec_representacao
-    MOV [DISPLAYS], R0  ; evitar mostrar um valor negativo de energia
+    MOV [DISPLAYS], R0  ; mostrar 0 de energia enquanto nao estamos a jogar o jogo
     MOV R0, MORTE_ENG
     MOV [lock_controlo], R0
     RET
@@ -436,36 +482,53 @@ elimina_rover:
 ; **********************************************************************
 ; Processo
 ;
-; inimigo - Processo que trata do movimento do inimigo.
+; objeto - Processo que trata do movimento do inimigo ou meteoro bom.
 ;
 ; **********************************************************************
-PROCESS sp_inimigo
+PROCESS sp_objeto
+objeto:
+    MOV SP, sp_objeto
+    MOV R0, def_muito_distante; tabela que define o objeto no inicio
+    CALL gera_x               ; gerar a coordenada aleatoria para X
+    MOV R2, OBJETO_Y          ; o valor de Y e o topo do ecra (0)
+    CALL desenha_objeto       ; desenhar o objeto inicial no ecra
+    CALL gera_indice          ; decidir se o objeto e um inimigo ou um meteoro bom
+    CMP R4, METEORO_BOM       ; calhou um meteoro bom?
+    JZ meteoro_bom
 inimigo:
-    MOV SP, sp_inimigo
-    MOV R0, def_muito_distante; tabela que define o inimigo
-    CALL set_x                ; gerar a coordenada aleatoria para X
-    MOV R2, INIMIGO_Y         ; o valor de Y e o topo do ecra (0)
     MOV R3, distancias_inimigo; tabela que define o inimigo em funcao da distancia
-    CALL desenha_objeto       ; desenhar o inimigo inicial no ecra
-loop_inimigo:
-    MOV R4, [lock_inimigo]    ; ler o LOCK
-    CMP R4, MORTO             ; o rover morreu?
-    JZ elimina_inimigo
-verificacao_baixo:
-    MOV R4, MAX_LINHA   ; limite maximo da linha
-    CMP R2, R4          ; ver se nao execedemos o limite
-    JZ elimina_inimigo  ; se estivermos na ultima linha so queremos apagar o objeto
+    JMP loop_objeto
+meteoro_bom:
+    MOV R3, distancias_meteoro; tabela que define o meteoro bom em funcao da distancia
+loop_objeto:
+    MOV R5, [lock_objeto]     ; ler o LOCK
+    CMP R5, MORTO             ; o rover morreu?
+    JZ elimina_objeto_morte
+move_baixo:
+    MOV R5, MAX_LINHA         ; limite maximo da linha
+    CMP R2, R5                ; ver se nao execedemos o limite
+    JZ elimina_objeto         ; se estivermos na ultima linha so queremos apagar o objeto
     CALL move_objeto_y
-    MOV R4, def_rover
-    MOV R5, [ROVER_X]
-    MOV R6, [ROVER_Y]
+    MOV R5, def_rover
+    MOV R6, [ROVER_X]
+    MOV R7, [ROVER_Y]
     CALL verifica_colisao
-    CMP R7, 0
-    JZ loop_inimigo
-    MOV R7, MORTE_COL
-    MOV [lock_controlo], R7
-elimina_inimigo:
-    CALL apaga_objeto
+    CMP R8, FALSE             ; nao houve colisao?
+    JZ loop_objeto
+    CMP R4, INIMIGO           ; o objeto que colidiu e um inimigo?
+    JZ colisao_inimigo
+colisao_meteoro_bom:
+    MOV R5, 2
+    MOV [lock_energia], R5    ; aumentar a energia do rover
+    JMP elimina_objeto        ; eliminar este objeto gerando um novo
+colisao_inimigo:
+    MOV R5, MORTE_COL
+    MOV [lock_controlo], R5
+    JMP elimina_objeto_morte  ; eliminar um objeto sem gerar um novo
+elimina_objeto:
+    CALL objeto               ; gerar um objeto novo
+elimina_objeto_morte:
+    CALL apaga_objeto         ; apagar o objeto do ecra
     RET
 
 ; **********************************************************************
@@ -477,7 +540,7 @@ int_meteoros:
     MOV R0, [estado]
     CMP R0, JOGO
     JNZ fim_int_meteoros
-    MOV [lock_inimigo], R0
+    MOV [lock_objeto], R0
 fim_int_meteoros:
     POP R0
     RFE
@@ -512,7 +575,7 @@ ciclo_delay:
     POP R0
     RET
 
-set_x:
+gera_x:
 ; atribui uma coordenada aleatoria ao X de
 ; um objeto e guarda o no registo R1, nao
 ; recebe argumentos
@@ -531,6 +594,29 @@ gera_aleatorio:
     JNZ gera_aleatorio
     POP R3
     POP R2
+    POP R0
+    RET
+
+gera_indice:
+; atribui um indice aleatorio a tabela
+; escolhe_objeto e guarda os seus conteudos
+; no registo R4, nao recebe argumentos
+    PUSH R0
+    PUSH R1
+    MOV R1, TEC_COL             ; endereco do periferico de entrada
+    MOV R4, 0                   ; inicializamos R3 a 0 para depois somar valores aleatorios
+    MOVB R0, [R1]               ; ler do periferico de entrada (colunas)
+    SHR R0, 5                   ; elimina bits para alem dos bits 4-7
+    ADD R4, R0                  ; somar ao indice o valor aleatorio
+    MOVB R0, [R1]               ; ler do periferico de entrada (colunas)
+    SHR R0, 6                   ; elimina bits para alem dos bits 5-7
+    ADD R4, R0                  ; somar ao indice o valor aleatorio, agora o indice e um numero aleatorio de 0-12
+    MOV R1, 2
+    MUL R1, R4                  ; multiplicar por 2 para aceder a tabela
+    MOV R0, escolhe_objeto
+    ADD R1, R0
+    MOV R4, [R1]                ; agora temos os conteudos de um indice aleatorio da tabela guardado em R4
+    POP R1
     POP R0
     RET
 
@@ -645,46 +731,46 @@ verifica_colisao:
 ; R0 -> endereco da tabela que define os pixeis do obj1
 ; R1 -> X do obj1
 ; R2 -> Y do obj1
-; R4 -> endereco da tabela que define os pixeis do obj2
-; R5 -> X do obj2
-; R6 -> Y do obj2
+; R5 -> endereco da tabela que define os pixeis do obj2
+; R6 -> X do obj2
+; R7 -> Y do obj2
 ;retorno:
-; R7 -> 1 se colidiu, 0 se nao
+; R8 -> TRUE se colidiu, FALSE se nao
     PUSH R1
     PUSH R2
-    PUSH R5
     PUSH R6
-    PUSH R8
+    PUSH R7
+    PUSH R9
 ; encontrar o centro do obj1
-    MOV R8, [R0]    ; obter a largura
-    SHR R8, 1       ; dividir a largura por 2
-    ADD R1, R8      ; adicionar a atual posicao
-    MOV R8, [R0+2]  ; obter a altura
-    SHR R8, 1       ; dividir a altura por 2
-    ADD R2, R8      ; adicionar a atual posicao
+    MOV R9, [R0]    ; obter a largura
+    SHR R9, 1       ; dividir a largura por 2
+    ADD R1, R9      ; adicionar a atual posicao
+    MOV R9, [R0+2]  ; obter a altura
+    SHR R9, 1       ; dividir a altura por 2
+    ADD R2, R9      ; adicionar a atual posicao
 ; comparacoes
-    CMP R1, R5      ; comparar se o centro esta a direita do X do obj2
+    CMP R1, R6      ; comparar se o centro esta a direita do X do obj2
     JLT nao_colidiu ; se nao estiver, nao colidiram
-    CMP R2, R6      ; comparar se o centro esta abaixo do Y do obj2
+    CMP R2, R7      ; comparar se o centro esta abaixo do Y do obj2
     JLT nao_colidiu ; se nao estiver, nao colidiram
 ; obter coordenadas do canto inferior direito do obj2
-    MOV R8, [R4]    ; obter a largura
-    ADD R5, R8      ; adicionar ao atual X
-    MOV R8, [R4+2]  ; obter a altura
-    ADD R6, R8      ; adicionar ao atual Y
+    MOV R9, [R5]    ; obter a largura
+    ADD R6, R9      ; adicionar ao atual X
+    MOV R9, [R5+2]  ; obter a altura
+    ADD R7, R9      ; adicionar ao atual Y
 ; comparacoes 2
-    CMP R1, R5      ; comparar se o centro esta a esquerda do X+largura do obj2
+    CMP R1, R6      ; comparar se o centro esta a esquerda do X+largura do obj2
     JGT nao_colidiu ; se nao estiver, nao colidiram
-    CMP R2, R6      ; comparar se o centro esta abaixo do Y+altura do obj2
+    CMP R2, R7      ; comparar se o centro esta abaixo do Y+altura do obj2
     JGT nao_colidiu ; se nao estiver, nao colidiram
-    MOV R7, 1       ; se chegou aqui houve colisao
+    MOV R8, TRUE    ; se chegou aqui houve colisao
     JMP fim_verifica_colisao
 nao_colidiu:
-    MOV R7, 0
+    MOV R8, FALSE
 fim_verifica_colisao:
-    POP R8
+    POP R9
+    POP R7
     POP R6
-    POP R5
     POP R2
     POP R1
     RET
@@ -757,7 +843,7 @@ apaga_objeto:
     ADD R7, R0          ; endereco da cor do primeiro pixel
     MOV R5, R1          ; copia das coordenadas iniciais da coluna (esta nao e alterada)
     MOV R8, R2          ; copia das coordenadas iniciais da linha
-apaga_colunas:        ; apaga os pixeis do boneco
+apaga_colunas:          ; apaga os pixeis do boneco
     MOV R6, [R7]        ; obtem a cor do proximo pixel
     CMP R6, 0           ; se a cor for 0 nao precisamos apagar
     JZ skip_pixel_apaga
