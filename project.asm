@@ -645,7 +645,6 @@ desenha_objeto:
     PUSH R6
     PUSH R7
     PUSH R8
-    PUSH R9
     MOV R3, [R0]        ; obtem a largura do objeto
     MOV R4, [R0+2]      ; obtem a altura do objeto
     ADD R3, R1          ; coluna final
@@ -658,9 +657,12 @@ desenha_objeto:
     MOV R8, R2          ; copia das coordenadas iniciais da linha
 desenha_colunas:        ; desenha os pixels do boneco a partir da tabela
     MOV R6, [R7]        ; obtem a cor do proximo pixel
+    CMP R6, 0           ; se a cor for 0 nao precisamos alterar
+    JZ skip_pixel
     MOV [SEL_COLUNA], R1; seleciona a coluna
     MOV [SEL_LINHA], R8 ; seleciona a linha
     MOV [SEL_PIXEL], R6 ; altera a cor do pixel na linha e coluna selecionadas
+skip_pixel:
     ADD R7, 2           ; endereco da cor do proximo pixel
     ADD R1, 1           ; proxima coluna
     CMP R1, R3          ; verificar se ja tratamos da largura toda
@@ -669,7 +671,6 @@ desenha_colunas:        ; desenha os pixels do boneco a partir da tabela
     MOV R1, R5          ; reiniciar as colunas
     CMP R8, R4          ; verificar se ja tratamos da altura toda
     JLE desenha_colunas ; continuar ate tratar da altura toda
-    POP R9
     POP R8
     POP R7
     POP R6
@@ -689,26 +690,35 @@ apaga_objeto:
     PUSH R5
     PUSH R6
     PUSH R7
+    PUSH R8
     MOV R3, [R0]        ; obtem a largura do objeto
     MOV R4, [R0+2]      ; obtem a altura do objeto
     ADD R3, R1          ; coluna final
     ADD R4, R2          ; linha final
     SUB R4, 1
     CALL atualiza_linha ; verificar se a linha final nao excede os limites do ecra
-    MOV R5, R1          ; copia das coordenadas iniciais da coluna
-    MOV R7, R2          ; copia das coordenadas iniciais da linha
-    MOV R6, 0           ; escolhe cor 0 (apagar)
-apaga_colunas:          ; desenha os pixels do boneco a partir da tabela
+    MOV R7, 4
+    ADD R7, R0          ; endereco da cor do primeiro pixel
+    MOV R5, R1          ; copia das coordenadas iniciais da coluna (esta nao e alterada)
+    MOV R8, R2          ; copia das coordenadas iniciais da linha
+apaga_colunas:        ; apaga os pixeis do boneco
+    MOV R6, [R7]        ; obtem a cor do proximo pixel
+    CMP R6, 0           ; se a cor for 0 nao precisamos apagar
+    JZ skip_pixel_apaga
     MOV [SEL_COLUNA], R1; seleciona a coluna
-    MOV [SEL_LINHA], R7 ; seleciona a linha
-    MOV [SEL_PIXEL], R6 ; apaga o pixel na linha e coluna selecionadas
+    MOV [SEL_LINHA], R8 ; seleciona a linha
+    MOV R9, 0
+    MOV [SEL_PIXEL], R9 ; apaga o pixel
+skip_pixel_apaga:
+    ADD R7, 2           ; endereco da cor do proximo pixel
     ADD R1, 1           ; proxima coluna
     CMP R1, R3          ; verificar se ja tratamos da largura toda
-    JNZ apaga_colunas   ; continua ate percorrer toda a largura do objeto
-    ADD R7, 1           ; proxima linha
+    JNZ apaga_colunas ; continua ate percorrer toda a largura do objeto
+    ADD R8, 1           ; proxima linha
     MOV R1, R5          ; reiniciar as colunas
-    CMP R7, R4          ; verificar se ja tratamos da altura toda
-    JLE apaga_colunas   ; continuar ate tratar da altura toda
+    CMP R8, R4          ; verificar se ja tratamos da altura toda
+    JLE apaga_colunas ; continuar ate tratar da altura toda
+    POP R8
     POP R7
     POP R6
     POP R5
