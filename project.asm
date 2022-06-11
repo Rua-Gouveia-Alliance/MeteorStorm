@@ -24,20 +24,23 @@ BG_ENERGIA  EQU 2       ; imagem de fundo de quando se morre por falta de energi
 BG_COLISAO  EQU 3       ; imagem de fundo de quando se morre por colisao
 
 DEL_ECRAS   EQU 6002H   ; endereco do comando para apagar todos os ecras
+SEL_ECRA    EQU 6004H   ; endereco do comando para selecionar o ecra onde vamos escrever
 SEL_LINHA   EQU 600AH   ; endereco do comando para definir a linha
 SEL_COLUNA  EQU 600CH   ; endereco do comando para definir a coluna
 SEL_PIXEL   EQU 6012H   ; endereco do comando para escrever um pixel
 DEL_AVISO   EQU 6040H   ; endereco do comando para apagar o aviso de nenhum cenario selecionado
 BACKGROUND  EQU 6042H   ; endereco do comando para selecionar uma imagem de fundo
+PRINCIPAL   EQU 0       ; indice do ecra principal
 
 OBJETO      EQU 1       ; sinaliza o gestor de objetos que queremos criar um meteoro ou nave
-TIRO        EQU 0       ; som do tiro, tambem sinaliza o gestor de objetos que queremos criar um tiro
+TIRO        EQU 0       ; som do tiro
 PLAY_SOM    EQU 605AH   ; endereco do comando para reproduzir um som
 
-MIN_COLUNA  EQU 0       ; numero da coluna mais a esquerda que o objeto pode ocupar
-MAX_COLUNA  EQU 63      ; numero da coluna mais a direita que o objeto pode ocupar
-MIN_LINHA   EQU 0       ; numero da linha mais acima que o objeto pode ocupar
-MAX_LINHA   EQU 31      ; numero da linha mais abaixo que o objeto pode ocupar
+MIN_COLUNA  EQU 0       ; numero da coluna mais a esquerda
+MAX_COLUNA  EQU 63      ; numero da coluna mais a direita
+MAX_COLUNA_OBJ  EQU 58  ; numero da coluna mais a direita que um objeto pode ocupar (coluna maxima menos a largura maxima)
+MIN_LINHA   EQU 0       ; numero da linha mais acima
+MAX_LINHA   EQU 31      ; numero da linha mais abaixo
 
 DELAY       EQU 2000H   ; atraso para limitar a velocidade de movimento da nave
 
@@ -71,7 +74,7 @@ PERTO       EQU 14      ; coordenada a partir da qual se considera perto
 METEORO_BOM EQU 0       ; codigo para gerar um meteoro bom (processo objetos)
 INIMIGO     EQU 1       ; codigo para gerar um inimigo (processo objetos)
 
-ITER_ALEATORIO EQU 3    ; repeticoes que o ciclo para gerar um numero aleatorio faz
+OFFSET      EQU 15      ; numero a multiplicar pela instancia do objeto para haver sempre algum espacamento entre as coordenadas aleatorias geradas
 
 RED         EQU 0FF00H  ; cor vermelho em ARGB
 GREY        EQU 0FFFFH  ; cor cinzento em ARGB
@@ -101,8 +104,24 @@ sp_energia:
     STACK 100H          ; espaco reservado para a stack do processo que trata do rover
 sp_rover:
 
-    STACK 100H          ; espaco reservado para a stack do processo que trata dos objetos (meteoros bons e inimigos)
-sp_objeto:
+    STACK 100H          ; espaco reservado para a stack do processo que trata dos objetos (meteoros bons e inimigos), indice 0
+sp_objeto_0:
+
+    STACK 100H          ; espaco reservado para a stack do processo que trata dos objetos (meteoros bons e inimigos), indice 1
+sp_objeto_1:
+
+    STACK 100H          ; espaco reservado para a stack do processo que trata dos objetos (meteoros bons e inimigos), indice 2
+sp_objeto_2:
+
+    STACK 100H          ; espaco reservado para a stack do processo que trata dos objetos (meteoros bons e inimigos), indice 3
+sp_objeto_3:
+
+sp_objetos:
+; espaco reservado para as stacks das varias instancias do processo que trata dos objetos (meteoros bons e inimigos)
+    WORD sp_objeto_0
+    WORD sp_objeto_1
+    WORD sp_objeto_2
+    WORD sp_objeto_3
 
 lock_controlo:          ; variavel para controlar o processo controlo
     LOCK    0
@@ -254,13 +273,9 @@ main:
     CALL teclado
 ; o resto do programa principal e tambem um processo, que gere os objetos
 gere_objetos:
-    MOV R0, [lock_gere_objetos]
-    CMP R0, OBJETO
-    JZ cria_objeto
-cria_objeto:
+    MOV R10, [lock_gere_objetos]
     CALL objeto
     JMP gere_objetos
-
 
 ; **********************************************************************
 ; Processo
@@ -271,7 +286,8 @@ cria_objeto:
 ; **********************************************************************
 PROCESS sp_controlo
 controlo:
-    MOV SP, sp_controlo
+    MOV SP, sp_controlo         ; re-inicializar o stack pointer
+loop_controlo:
     MOV R0, [lock_controlo]     ; ler o LOCK
     MOV R1, COMECAR
     CMP R0, R1
@@ -285,6 +301,8 @@ controlo:
     JMP controlo
 comecar_jogo:
 ; prepara o inicio do jogo
+    MOV R0, PRINCIPAL           ; garantir que estamos a trabalhar com o ecra certo
+    MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
     MOV R0, BG_JOGO             ; cenario de fundo do jogo
     MOV [BACKGROUND], R0        ; seleciona o cenario de fundo
     MOV R0, JOGO                ; novo estado
@@ -292,12 +310,17 @@ comecar_jogo:
 
     CALL energia                ; iniciar a energia
     CALL rover                  ; iniciar o rover
-    MOV R0, OBJETO
+    MOV R0, 0
+    MOV [lock_gere_objetos], R0 ; criar um objeto novo
+    YIELD                       ; deixar o processo gere_objetos criar o objeto
+    MOV R0, 1
     MOV [lock_gere_objetos], R0 ; criar um objeto novo
 
-    JMP controlo
+    JMP loop_controlo
 morte_falta_energia:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
+    MOV R0, PRINCIPAL           ; garantir que estamos a trabalhar com o ecra certo
+    MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
     MOV R0, BG_ENERGIA          ; cenario de fundo da morte por falta de energia
     MOV [BACKGROUND], R0        ; atualizar cenario de fundo
 
@@ -305,11 +328,13 @@ morte_falta_energia:
     MOV [estado], R0            ; atualizar estado
 
     MOV [lock_rover], R0        ; eliminar o rover
-    MOV [lock_objeto], R0       ; eliminar o objeto
+    MOV [lock_objeto], R0       ; eliminar os objetos
 
     JMP controlo
 morte_colisao:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
+    MOV R0, PRINCIPAL           ; garantir que estamos a trabalhar com o ecra certo
+    MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
     MOV R0, BG_COLISAO          ; cenario de fundo da morte por colisao
     MOV [BACKGROUND], R0        ; atualizar cenario de fundo
 
@@ -329,7 +354,7 @@ morte_colisao:
 ; **********************************************************************
 PROCESS sp_teclado
 teclado:
-    MOV SP, sp_teclado
+    MOV SP, sp_teclado  ; re-inicializar o stack pointer
     MOV R2, MASCARA_MSD ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
     MOV R3, TEC_LIN     ; endereco do periferico de saida
     MOV R4, TEC_COL     ; endereco do periferico de entrada
@@ -411,7 +436,7 @@ unlock_rover:
 ; **********************************************************************
 PROCESS sp_energia
 energia:
-    MOV SP, sp_energia
+    MOV SP, sp_energia          ; re-inicializar o stack pointer
     MOV R1, MAX_ENERGIA         ; valor inicial da energia
     CALL hex_p_dec_representacao
 ciclo_energia:
@@ -458,15 +483,19 @@ elimina_energia:
 ; **********************************************************************
 PROCESS sp_rover
 rover:
-    MOV SP, sp_rover
+    MOV SP, sp_rover          ; re-inicializar o stack pointer
     MOV R0, def_rover         ; tabela que define o rover
     MOV R1, NAVE_X
     MOV R2, NAVE_Y
+    MOV R4, PRINCIPAL         ; garantir que estamos a trabalhar com o ecra certo
+    MOV [SEL_ECRA], R4        ; atualizar o ecra que esta selecionado
     CALL desenha_objeto       ; desenhar o rover inicial no ecra
 loop_rover:
     MOV [ROVER_X], R1         ; atualizar posicao do rover global
     MOV [ROVER_Y], R2
     MOV R3, [lock_rover]      ; ler o LOCK, contem a direcao em que mexer o rover
+    MOV R4, PRINCIPAL         ; garantir que estamos a trabalhar com o ecra certo
+    MOV [SEL_ECRA], R4        ; atualizar o ecra que esta selecionado
     CMP R3, MORTO             ; o rover morreu?
     JZ elimina_rover
     CMP R3, DIREITA           ; vamos mexer para a direita?
@@ -495,16 +524,22 @@ elimina_rover:
 ;
 ; objeto - Processo que trata do movimento do inimigo ou meteoro bom.
 ;
+; Argumentos: R10 -> Numero da instancia do processo
+;
 ; **********************************************************************
-PROCESS sp_objeto
+PROCESS sp_objeto_0           ; este stack pointer e irrelevante, vai ser substituido pelo correto depois
 objeto:
-    MOV SP, sp_objeto
+    MOV R9, R10               ; copiar o numero da instancia do processo
+    SHL R10, 1                ; multiplicar por dois para poder aceder corretamente a tabela
+    MOV R11, sp_objetos       ; endereco da tabela com os stack pointers das varias instancias
+    MOV SP, [R10+R11]         ; corrigir para o SP correto
     MOV R0, def_muito_distante; tabela que define o objeto no inicio
     CALL gera_x               ; gerar a coordenada aleatoria para X
     MOV R2, OBJETO_Y          ; o valor de Y e o topo do ecra (0)
+    MOV [SEL_ECRA], R9        ; atualizar o ecra que esta selecionado
     CALL desenha_objeto       ; desenhar o objeto inicial no ecra
     CALL gera_indice          ; decidir se o objeto e um inimigo ou um meteoro bom
-    CMP R4, INIMIGO           ; calhou um inimigo bom?
+    CMP R4, INIMIGO           ; calhou um inimigo?
     JZ inimigo
 meteoro_bom:
     MOV R3, distancias_meteoro; tabela que define o meteoro bom em funcao da distancia
@@ -513,6 +548,7 @@ inimigo:
     MOV R3, distancias_inimigo; tabela que define o inimigo em funcao da distancia
 loop_objeto:
     MOV R5, [lock_objeto]     ; ler o LOCK
+    MOV [SEL_ECRA], R9        ; atualizar o ecra que esta selecionado
     CMP R5, MORTO             ; o rover morreu?
     JZ elimina_objeto_morte
 move_baixo:
@@ -539,8 +575,7 @@ colisao_inimigo:
     MOV [lock_controlo], R5
     JMP elimina_objeto_morte  ; eliminar um objeto sem gerar um novo
 elimina_objeto:
-    MOV R5, OBJETO
-    MOV [lock_gere_objetos], R5 ; queremos criar um novo objeto
+    MOV [lock_gere_objetos], R9 ; queremos criar um novo objeto no mesmo indice que este (este vai ser eliminado)
 elimina_objeto_morte:
     CALL apaga_objeto         ; apagar o objeto do ecra
     RET
@@ -591,23 +626,22 @@ ciclo_delay:
 
 gera_x:
 ; atribui uma coordenada aleatoria ao X de
-; um objeto e guarda o no registo R1, nao
-; recebe argumentos
+; um objeto e guarda o no registo R1
+;argumentos:
+; R9 -> Numero da instancia do objeto
     PUSH R0
-    PUSH R2
-    PUSH R3
-    MOV R1, 0               ; inicializamos R1 a 0 para depois somar valores aleatorios
-    MOV R2, ITER_ALEATORIO  ; R2 e um contador
-    MOV R3, TEC_COL         ; endereco do periferico de entrada
-gera_aleatorio:
-    MOVB R0, [R3]           ; ler do periferico de entrada (colunas)
-    SHR R0, 4               ; elimina bits para alem dos bits 3-7
-    ADD R1, R0              ; somar as coordenadas o valor aleatorio
-    SUB R2, 1               ; menos um ciclo a fazer
-; repetimos 3 vezes, para no maximo a coordenada gerada ser 45 e nao exceder 58 (o limite do ecra menos a largura maxima do boneco)
-    JNZ gera_aleatorio
-    POP R3
-    POP R2
+    MOV R0, TEC_COL         ; endereco do periferico de entrada
+    MOVB R1, [R0]           ; ler do periferico de entrada (colunas)
+    SHR R1, 4               ; elimina bits para alem dos bits 3-7
+    MOV R0, OFFSET
+    MUL R0, R9              ; multiplicar o offset pela instancia do objeto, para garantir que as coordenadas geradas sao diferentes
+    ADD R1, R0              ; somar as coordenadas o offset
+    MOV R0, MAX_COLUNA_OBJ  ; verificar se nao excedemos a coluna maxima
+    CMP R1, R0
+    JLE fim_gera_x          ; se nao excedemos nao se faz nada
+; se excedemos o maximo o valor de R1 e no maximo 60, se subtrairmos 2 garantidamente ficamos dentro dos limites
+    SUB R1, 2
+fim_gera_x:
     POP R0
     RET
 
