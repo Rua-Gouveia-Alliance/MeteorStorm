@@ -356,7 +356,7 @@ eliminar_objetos:
     MOV R1, NUM_OBJS
     SHL R1, 1
 eliminar_objetos_loop:
-    SUB R1, 2 
+    SUB R1, 2
     MOV [R2+R1], R0             ; eliminar o objeto
     CMP R1, 0
     JNZ eliminar_objetos_loop
@@ -438,10 +438,8 @@ largou:                 ; neste ciclo espera-se ate largar a tecla
 unlock_controlo:
     MOV [lock_controlo], R0
     JMP largou
-    YIELD
 unlock_rover:
     MOV [lock_rover], R0
-    YIELD
     CALL delay
     JMP espera_tecla
 
