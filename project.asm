@@ -74,7 +74,7 @@ PERTO       EQU 14      ; coordenada a partir da qual se considera perto
 METEORO_BOM EQU 0       ; codigo para gerar um meteoro bom (processo objetos)
 INIMIGO     EQU 1       ; codigo para gerar um inimigo (processo objetos)
 
-NUM_OBJS    EQU 1       ; num de objetos (meteoros bons e inimigos) no jogo
+NUM_OBJS    EQU 2       ; num de objetos (meteoros bons e inimigos) no jogo
 
 OFFSET      EQU 15      ; numero a multiplicar pela instancia do objeto para haver sempre algum espacamento entre as coordenadas aleatorias geradas
 
@@ -356,7 +356,7 @@ eliminar_objetos:
     MOV R1, NUM_OBJS
     SHL R1, 1
 eliminar_objetos_loop:
-    SUB R1, 2 
+    SUB R1, 2
     MOV [R2+R1], R0             ; eliminar o objeto
     CMP R1, 0
     JNZ eliminar_objetos_loop
@@ -438,10 +438,8 @@ largou:                 ; neste ciclo espera-se ate largar a tecla
 unlock_controlo:
     MOV [lock_controlo], R0
     JMP largou
-    YIELD
 unlock_rover:
     MOV [lock_rover], R0
-    YIELD
     CALL delay
     JMP espera_tecla
 
