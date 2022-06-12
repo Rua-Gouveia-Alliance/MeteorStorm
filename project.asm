@@ -74,7 +74,7 @@ PERTO       EQU 14      ; coordenada a partir da qual se considera perto
 METEORO_BOM EQU 0       ; codigo para gerar um meteoro bom (processo objetos)
 INIMIGO     EQU 1       ; codigo para gerar um inimigo (processo objetos)
 
-NUM_OBJS    EQU 1       ; num de objetos (meteoros bons e inimigos) no jogo
+NUM_OBJS    EQU 4       ; num de objetos (meteoros bons e inimigos) no jogo
 
 OFFSET      EQU 15      ; numero a multiplicar pela instancia do objeto para haver sempre algum espacamento entre as coordenadas aleatorias geradas
 
@@ -596,6 +596,8 @@ elimina_objeto:
     MOV [lock_gere_objetos], R9 ; queremos criar um novo objeto no mesmo indice que este (este vai ser eliminado)
 elimina_objeto_morte:
     CALL apaga_objeto         ; apagar o objeto do ecra
+    MOV R0, gere_objetos
+    PUSH R0
     RET
 
 ; **********************************************************************
@@ -614,6 +616,7 @@ int_meteoros:
     MOV R2, NUM_OBJS
     SHL R2, 1
 atualizar_objetos_int:
+    MOV R0, [estado]
     SUB R2, 2
     MOV [R1+R2], R0
     CMP R2, 0
@@ -962,3 +965,4 @@ atualiza_linha:
 fim_atualiza_linha:
     POP R0
     RET
+
