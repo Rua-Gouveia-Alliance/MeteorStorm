@@ -74,6 +74,8 @@ PERTO       EQU 14      ; coordenada a partir da qual se considera perto
 METEORO_BOM EQU 0       ; codigo para gerar um meteoro bom (processo objetos)
 INIMIGO     EQU 1       ; codigo para gerar um inimigo (processo objetos)
 
+NUM_OBJS    EQU 1       ; num de objetos (meteoros bons e inimigos) no jogo
+
 OFFSET      EQU 15      ; numero a multiplicar pela instancia do objeto para haver sempre algum espacamento entre as coordenadas aleatorias geradas
 
 RED         EQU 0FF00H  ; cor vermelho em ARGB
@@ -132,8 +134,11 @@ lock_energia:           ; variavel para controlar o processo energia
 lock_rover:             ; variavel para controlar o processo rover
     LOCK    0
 
-lock_objeto:            ; variavel para controlar o processo objeto
-    LOCK    0
+lock_objeto:            ; variaveis para controlar o processo objeto
+    LOCK    0           ; objeto 0
+    LOCK    0           ; objeto 1
+    LOCK    0           ; objeto 2
+    LOCK    0           ; objeto 3
 
 lock_gere_objetos:
     LOCK    0
@@ -310,11 +315,14 @@ comecar_jogo:
 
     CALL energia                ; iniciar a energia
     CALL rover                  ; iniciar o rover
-    MOV R0, 0
+
+    MOV R0, NUM_OBJS
+criar_objetos:
+    SUB R0, 1
     MOV [lock_gere_objetos], R0 ; criar um objeto novo
     YIELD                       ; deixar o processo gere_objetos criar o objeto
-    MOV R0, 1
-    MOV [lock_gere_objetos], R0 ; criar um objeto novo
+    CMP R0, 0
+    JNZ criar_objetos
 
     JMP loop_controlo
 morte_falta_energia:
@@ -328,9 +336,8 @@ morte_falta_energia:
     MOV [estado], R0            ; atualizar estado
 
     MOV [lock_rover], R0        ; eliminar o rover
-    MOV [lock_objeto], R0       ; eliminar os objetos
 
-    JMP controlo
+    JMP eliminar_objetos
 morte_colisao:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
     MOV R0, PRINCIPAL           ; garantir que estamos a trabalhar com o ecra certo
@@ -343,6 +350,16 @@ morte_colisao:
 
     MOV [lock_rover], R0        ; eliminar o rover
     MOV [lock_energia], R0      ; sinalizar a energia de que o rover morreu
+
+eliminar_objetos:
+    MOV R2, lock_objeto
+    MOV R1, NUM_OBJS
+    SHL R1, 1
+eliminar_objetos_loop:
+    SUB R1, 2 
+    MOV [R2+R1], R0             ; eliminar o objeto
+    CMP R1, 0
+    JNZ eliminar_objetos_loop
 
     JMP controlo
 
@@ -547,7 +564,8 @@ meteoro_bom:
 inimigo:
     MOV R3, distancias_inimigo; tabela que define o inimigo em funcao da distancia
 loop_objeto:
-    MOV R5, [lock_objeto]     ; ler o LOCK
+    MOV R11, lock_objeto      ; endereco da tabela com os locks das varias instancias
+    MOV R5, [R11+R10]         ; ler o LOCK
     MOV [SEL_ECRA], R9        ; atualizar o ecra que esta selecionado
     CMP R5, MORTO             ; o rover morreu?
     JZ elimina_objeto_morte
@@ -573,7 +591,7 @@ colisao_meteoro_bom:
 colisao_inimigo:
     MOV R5, MORTE_COL
     MOV [lock_controlo], R5
-    JMP elimina_objeto_morte  ; eliminar um objeto sem gerar um novo
+    JMP loop_objeto
 elimina_objeto:
     MOV [lock_gere_objetos], R9 ; queremos criar um novo objeto no mesmo indice que este (este vai ser eliminado)
 elimina_objeto_morte:
@@ -586,11 +604,23 @@ elimina_objeto_morte:
 
 int_meteoros:
     PUSH R0
+    PUSH R1
+    PUSH R2
     MOV R0, [estado]
     CMP R0, JOGO
     JNZ fim_int_meteoros
-    MOV [lock_objeto], R0
+
+    MOV R1, lock_objeto
+    MOV R2, NUM_OBJS
+    SHL R2, 1
+atualizar_objetos_int:
+    SUB R2, 2
+    MOV [R1+R2], R0
+    CMP R2, 0
+    JNZ atualizar_objetos_int
 fim_int_meteoros:
+    POP R2
+    POP R1
     POP R0
     RFE
 
@@ -883,6 +913,7 @@ apaga_objeto:
     PUSH R6
     PUSH R7
     PUSH R8
+    PUSH R9
     MOV R3, [R0]        ; obtem a largura do objeto
     MOV R4, [R0+2]      ; obtem a altura do objeto
     ADD R3, R1          ; coluna final
@@ -910,6 +941,7 @@ skip_pixel_apaga:
     MOV R1, R5          ; reiniciar as colunas
     CMP R8, R4          ; verificar se ja tratamos da altura toda
     JLE apaga_colunas ; continuar ate tratar da altura toda
+    POP R9
     POP R8
     POP R7
     POP R6
