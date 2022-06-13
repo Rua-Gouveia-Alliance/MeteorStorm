@@ -15,9 +15,9 @@ MAX_ENERGIA EQU 064H    ; valor inicial da energia e maximo
 MIN_ENERGIA EQU 0       ; valor minimo da energia
 SENERGIA    EQU 05H     ; maximo divisor comum do valor de energia a subtrair e adicionar
 
+MORTO       EQU -3      ; estado em que o jogo esta (jogador morto)
 HOME        EQU 0       ; estado em que o jogo esta (home screen)
 JOGO        EQU 1       ; estado em que o jogo esta (a ser jogado)
-MORTO       EQU 3       ; estado em que o jogo esta (jogador morto)
 BG_JOGO     EQU 0       ; imagem de fundo do jogo
 BG_HOME     EQU 1       ; imagem de fundo do home screen
 BG_ENERGIA  EQU 2       ; imagem de fundo de quando se morre por falta de energia
@@ -54,6 +54,7 @@ NAVE_LY     EQU 4       ; altura da nave
 COMECAR     EQU 0       ; sinal para o processo de controlo, comecar jogo
 MORTE_ENG   EQU 1       ; sinal para o processo de controlo, morte por falta de energia
 MORTE_COL   EQU 2       ; sinal para o processo de controlo, morte por colisao
+RETOMAR     EQU 3       ; sinal para o processo de controlo, retomar o jogo
 
 OBJETO_Y    EQU 0       ; linha do inimigo
 OBJETO_PX   EQU 5       ; largura do inimigo/meteoro bom perto
@@ -297,6 +298,9 @@ loop_controlo:
     MOV R1, COMECAR
     CMP R0, R1
     JZ comecar_jogo
+    MOV R1, RETOMAR
+    CMP R0, R1
+    JZ retomar_jogo
     MOV R1, MORTE_ENG
     CMP R0, R1
     JZ morte_falta_energia
@@ -308,14 +312,7 @@ comecar_jogo:
 ; prepara o inicio do jogo
     MOV R0, PRINCIPAL           ; garantir que estamos a trabalhar com o ecra certo
     MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
-    MOV R0, BG_JOGO             ; cenario de fundo do jogo
-    MOV [BACKGROUND], R0        ; seleciona o cenario de fundo
-    MOV R0, JOGO                ; novo estado
-    MOV [estado], R0            ; atualizar o estado do jogo
-
-    CALL energia                ; iniciar a energia
-    CALL rover                  ; iniciar o rover
-
+; criar os objetos
     MOV R0, NUM_OBJS
 criar_objetos:
     SUB R0, 1
@@ -323,6 +320,16 @@ criar_objetos:
     YIELD                       ; deixar o processo gere_objetos criar o objeto
     CMP R0, 0
     JNZ criar_objetos
+retomar_jogo:
+    MOV R0, PRINCIPAL           ; garantir que estamos a trabalhar com o ecra certo
+    MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
+    MOV R0, BG_JOGO             ; cenario de fundo do jogo
+    MOV [BACKGROUND], R0        ; seleciona o cenario de fundo
+    MOV R0, JOGO                ; novo estado
+    MOV [estado], R0            ; atualizar o estado do jogo
+
+    CALL energia                ; iniciar a energia
+    CALL rover                  ; iniciar o rover
 
     JMP loop_controlo
 morte_falta_energia:
@@ -411,7 +418,7 @@ morto:
     ; !!!!!! nao funciona bem porque nao esta a eliminar o rover anterior e a dar reset as variaveis !!!!!!
     MOV R0, TSTART
     CMP R5, R0
-    MOV R0, COMECAR
+    MOV R0, RETOMAR
     JZ unlock_controlo
     JMP espera_tecla
 jogo:
@@ -548,6 +555,7 @@ objeto:
     SHL R10, 1                ; multiplicar por dois para poder aceder corretamente a tabela
     MOV R11, sp_objetos       ; endereco da tabela com os stack pointers das varias instancias
     MOV SP, [R10+R11]         ; corrigir para o SP correto
+novo_objeto:
     MOV R0, def_muito_distante; tabela que define o objeto no inicio
     CALL gera_x               ; gerar a coordenada aleatoria para X
     MOV R2, OBJETO_Y          ; o valor de Y e o topo do ecra (0)
@@ -566,11 +574,11 @@ loop_objeto:
     MOV R5, [R11+R10]         ; ler o LOCK
     MOV [SEL_ECRA], R9        ; atualizar o ecra que esta selecionado
     CMP R5, MORTO             ; o rover morreu?
-    JZ elimina_objeto_morte
+    JZ gera_novo_objeto
 move_baixo:
     MOV R5, MAX_LINHA         ; limite maximo da linha
     CMP R2, R5                ; ver se nao execedemos o limite
-    JZ elimina_objeto         ; se estivermos na ultima linha so queremos apagar o objeto
+    JZ gera_novo_objeto       ; se estivermos na ultima linha so queremos apagar o objeto e criar um novo
     CALL move_objeto_y
     MOV R5, def_rover
     MOV R6, [ROVER_X]
@@ -585,18 +593,14 @@ colisao_meteoro_bom:
     MOV [lock_energia], R5    ; aumentar a energia do rover
     MOV R5, 0
     MOV [lock_rover], R5      ; redesenhar o rover no sitio, repor os pixeis apagados pela colisao
-    JMP elimina_objeto        ; eliminar este objeto gerando um novo
+    JMP gera_novo_objeto      ; eliminar este objeto gerando um novo
 colisao_inimigo:
     MOV R5, MORTE_COL
     MOV [lock_controlo], R5
     JMP loop_objeto
-elimina_objeto:
-    MOV [lock_gere_objetos], R9 ; queremos criar um novo objeto no mesmo indice que este (este vai ser eliminado)
-elimina_objeto_morte:
+gera_novo_objeto:
     CALL apaga_objeto         ; apagar o objeto do ecra
-    MOV R0, gere_objetos
-    PUSH R0
-    RET
+    JMP novo_objeto           ; reiniciar todas as informacoes deste objeto (escolher nova posicao, escolher se e meteoro bom ou inimigo)
 
 ; **********************************************************************
 ; * Rotinas de interrupcoes
