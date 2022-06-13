@@ -600,6 +600,7 @@ colisao_inimigo:
     JMP loop_objeto
 gera_novo_objeto:
     CALL apaga_objeto         ; apagar o objeto do ecra
+    MOV R5, [R11+R10]
     JMP novo_objeto           ; reiniciar todas as informacoes deste objeto (escolher nova posicao, escolher se e meteoro bom ou inimigo)
 
 ; **********************************************************************
