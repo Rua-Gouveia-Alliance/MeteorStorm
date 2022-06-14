@@ -643,30 +643,30 @@ gera_novo_objeto:
 PROCESS sp_missil
 missil:
     MOV SP, sp_missil
-    MOV R0, def_missil
-    MOV R3, 12              ; movimentos atuais atuais
+    MOV R0, def_missil      ; tabela que define o missil
+    MOV R3, 12              ; movimentos atuais (inicializado a 12 para reiniciar o missil)
 loop_missil:
     MOV R4, [lock_missil]
     MOV R5, ECRA_PRINCIPAL  ; garantir que estamos a trabalhar com o ecra certo
     MOV [SEL_ECRA], R5      ; atualizar o ecra que esta selecionado
-    CMP R4, -3
+    CMP R4, -3              ; se o rover tiver morrido vamos apagar o missil e terminar o processo
     JZ apagar_missil
-    MOV R5, 12
-    CMP R3, R5 
-    JNZ mover_missil
+    MOV R5, 12              ; verificar se ja andou as 12 vezes
+    CMP R3, R5
+    JNZ mover_missil        ; se nao andou vamos continuar a move-lo
 novo_missil:
-    CALL apaga_objeto
-    CMP R4, 0
+    CALL apaga_objeto       ; apagar o atual
+    CMP R4, 0               ; verificar se pedimos clicamos para disparar
     JNZ loop_missil
-; calcular o X
+; calcular o X inicial (X do rover + 1/2 do seu tamanho)
     MOV R1, [ROVER_X]
     MOV R5, NAVE_LX
     SHR R5, 1
     ADD R1, R5
-; calcular o Y
+; calcular o Y inicial (Y do rover - 1)
     MOV R2, [ROVER_Y]
     SUB R2, 1
-; reset aos movimentos
+; reset a contagem de movimentos e variavel de missil disparado
     MOV R3, 0
     MOV R5, TRUE
     MOV [MISSIL_DISPARADO], R5
@@ -675,14 +675,14 @@ novo_missil:
     JMP loop_missil
 mover_missil:
     CALL apaga_objeto
-    SUB R2, 1
+    SUB R2, 1               ; atualizar linha (Y-1)
     CALL desenha_objeto 
-    ADD R3, 1
+    ADD R3, 1               ; adicionar movimento a contagem
     JMP loop_missil
 apagar_missil:
     CALL apaga_objeto
-    MOV R5, FALSE
-    MOV [MISSIL_DISPARADO], R5
+    MOV R5, FALSE           ; atualizar variavel de missil disparado
+    MOV [MISSIL_DISPARADO], R5 
     RET
 
 ; **********************************************************************
