@@ -1,4 +1,3 @@
-
 ; **********************************************************************
 ; * Constantes
 ; **********************************************************************
@@ -32,7 +31,7 @@ SEL_PIXEL   EQU 6012H   ; endereco do comando para escrever um pixel
 DEL_AVISO   EQU 6040H   ; endereco do comando para apagar o aviso de nenhum cenario selecionado
 BACKGROUND  EQU 6042H   ; endereco do comando para selecionar uma imagem de fundo
 ECRA_PRINCIPAL   EQU 0  ; indice do ecra principal
-ECRA_MISSIL   EQU 6     ; indice do ecra do missil
+ECRA_MISSIL EQU 6       ; indice do ecra do missil
 
 OBJETO      EQU 1       ; sinaliza o gestor de objetos que queremos criar um meteoro ou nave
 TIRO        EQU 0       ; som do tiro
@@ -51,7 +50,7 @@ DIREITA     EQU 1       ; valor a adicionar para ir para a direita
 COMECAR     EQU 0       ; sinal para o processo de controlo, comecar jogo
 MORTE_ENG   EQU 1       ; sinal para o processo de controlo, morte por falta de energia
 MORTE_COL   EQU 2       ; sinal para o processo de controlo, morte por colisao
-RETOMAR     EQU 3       ; sinal para o processo de controlo, retomar o jogo
+REINICIAR   EQU 3       ; sinal para o processo de controlo, reiniciar o jogo
 
 NAVE_X      EQU 30      ; coluna da nave
 NAVE_Y      EQU 28      ; linha da nave
@@ -113,10 +112,10 @@ sp_energia:
     STACK 100H          ; espaco reservado para a stack do processo que trata do rover
 sp_rover:
 
-    STACK 100H          ; espaco reservado para a stack do processo que trata dos objetos (meteoros bons e inimigos), indice 0
+    STACK 100H          ; espaco reservado para a stack do processo que trata dos misseis
 sp_missil:
-    
-    STACK 100H
+
+    STACK 100H          ; espaco reservado para a stack do processo que trata dos objetos (meteoros bons e inimigos), indice 0
 sp_objeto_0:
 
     STACK 100H          ; espaco reservado para a stack do processo que trata dos objetos (meteoros bons e inimigos), indice 1
@@ -172,14 +171,20 @@ def_rover:              ; tabela que define o rover (largura, altura e cor dos p
     WORD    YELLOW, YELLOW, YELLOW, YELLOW, YELLOW
     WORD    0, YELLOW, 0, YELLOW, 0
 
-ROVER_X:
+ROVER_X:                ; coordenada X do rover
     WORD    NAVE_X
 
-ROVER_Y:
+ROVER_Y:                ; coordenada Y do rover
     WORD    NAVE_Y
 
+MISSIL_X:               ; coordenada X do missil
+    WORD    0
+
+MISSIL_Y:               ; coordenada Y do missil
+    WORD    0
+
 MISSIL_DISPARADO:
-    WORD    FALSE   ; TRUE se existe um missil no ecra, FALSE caso contrario
+    WORD    FALSE       ; TRUE se existe um missil no ecra, FALSE caso contrario
 
 def_missil:
     WORD    MISSIL_LX
@@ -318,9 +323,9 @@ loop_controlo:
     MOV R1, COMECAR
     CMP R0, R1
     JZ comecar_jogo
-    MOV R1, RETOMAR
+    MOV R1, REINICIAR
     CMP R0, R1
-    JZ retomar_jogo
+    JZ reiniciar_jogo
     MOV R1, MORTE_ENG
     CMP R0, R1
     JZ morte_falta_energia
@@ -330,7 +335,7 @@ loop_controlo:
     JMP controlo
 comecar_jogo:
 ; prepara o inicio do jogo
-    MOV R0, ECRA_PRINCIPAL           ; garantir que estamos a trabalhar com o ecra certo
+    MOV R0, ECRA_PRINCIPAL      ; garantir que estamos a trabalhar com o ecra certo
     MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
 ; criar os objetos
     MOV R0, NUM_OBJS
@@ -340,8 +345,8 @@ criar_objetos:
     YIELD                       ; deixar o processo gere_objetos criar o objeto
     CMP R0, 0
     JNZ criar_objetos
-retomar_jogo:
-    MOV R0, ECRA_PRINCIPAL           ; garantir que estamos a trabalhar com o ecra certo
+reiniciar_jogo:
+    MOV R0, ECRA_PRINCIPAL      ; garantir que estamos a trabalhar com o ecra certo
     MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
     MOV R0, BG_JOGO             ; cenario de fundo do jogo
     MOV [BACKGROUND], R0        ; seleciona o cenario de fundo
@@ -350,12 +355,11 @@ retomar_jogo:
 
     CALL energia                ; iniciar a energia
     CALL rover                  ; iniciar o rover
-    CALL missil
 
     JMP loop_controlo
 morte_falta_energia:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
-    MOV R0, ECRA_PRINCIPAL           ; garantir que estamos a trabalhar com o ecra certo
+    MOV R0, ECRA_PRINCIPAL      ; garantir que estamos a trabalhar com o ecra certo
     MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
     MOV R0, BG_ENERGIA          ; cenario de fundo da morte por falta de energia
     MOV [BACKGROUND], R0        ; atualizar cenario de fundo
@@ -364,12 +368,12 @@ morte_falta_energia:
     MOV [estado], R0            ; atualizar estado
 
     MOV [lock_rover], R0        ; eliminar o rover
-    MOV [lock_missil], R0
+    MOV [lock_missil], R0       ; sinalizar o missil de que o rover morreu
 
     JMP eliminar_objetos
 morte_colisao:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
-    MOV R0, ECRA_PRINCIPAL           ; garantir que estamos a trabalhar com o ecra certo
+    MOV R0, ECRA_PRINCIPAL      ; garantir que estamos a trabalhar com o ecra certo
     MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
     MOV R0, BG_COLISAO          ; cenario de fundo da morte por colisao
     MOV [BACKGROUND], R0        ; atualizar cenario de fundo
@@ -379,7 +383,7 @@ morte_colisao:
 
     MOV [lock_rover], R0        ; eliminar o rover
     MOV [lock_energia], R0      ; sinalizar a energia de que o rover morreu
-    MOV [lock_missil], R0
+    MOV [lock_missil], R0       ; sinalizar o missil de que o rover morreu
 
 eliminar_objetos:
     MOV R2, lock_objeto
@@ -438,10 +442,9 @@ home:
     JMP espera_tecla
 morto:
     ; premir c para reiniciar o jogo
-    ; !!!!!! nao funciona bem porque nao esta a eliminar o rover anterior e a dar reset as variaveis !!!!!!
     MOV R0, TSTART
     CMP R5, R0
-    MOV R0, RETOMAR
+    MOV R0, REINICIAR
     JZ unlock_controlo
     JMP espera_tecla
 jogo:
@@ -459,8 +462,7 @@ jogo:
 
     MOV R0, TMISSIL
     CMP R5, R0
-    MOV R0, 0
-    JZ unlock_missil
+    JZ check_missil
 
     JMP espera_tecla
 largou:                 ; neste ciclo espera-se ate largar a tecla
@@ -477,8 +479,12 @@ unlock_rover:
     MOV [lock_rover], R0
     CALL delay
     JMP espera_tecla
-unlock_missil:
-    MOV [lock_missil], R0
+check_missil:
+    MOV R0, [MISSIL_DISPARADO]
+    CMP R0, TRUE        ; ja disparamos um missil?
+    JZ fim_check_missil
+    CALL missil
+fim_check_missil:
     JMP largou
 
 ; **********************************************************************
@@ -611,16 +617,32 @@ move_baixo:
     CMP R2, R5                ; ver se nao execedemos o limite
     JZ gera_novo_objeto       ; se estivermos na ultima linha so queremos apagar o objeto e criar um novo
     CALL move_objeto_y
+; verificar colisao com o rover
     MOV R5, def_rover
     MOV R6, [ROVER_X]
     MOV R7, [ROVER_Y]
     CALL verifica_colisao
     CMP R8, FALSE             ; nao houve colisao?
-    JZ loop_objeto
+    JZ verifica_missil
     CMP R4, INIMIGO           ; o objeto que colidiu e um inimigo?
     JZ colisao_inimigo
-colisao_meteoro_bom:
-    MOV R5, 2
+    MOV R5, 2                 ; vamos aumentar a energia por 10 ja que colidimos com um meteoro bom
+    JMP colisao_aumenta_energia
+verifica_missil:
+; verificar colisao com o missil
+    MOV R5, [MISSIL_DISPARADO]
+    CMP R5, FALSE
+    JZ loop_objeto            ; se nao ha nenhum missil disparado nao ha nada a fazer
+    MOV R5, def_missil
+    MOV R6, [MISSIL_X]
+    MOV R7, [MISSIL_Y]
+    CALL verifica_colisao
+    CMP R8, FALSE             ; nao houve colisao?
+    JZ loop_objeto
+    MOV R5, MORTO
+    MOV [lock_missil], R5     ; eliminar o missil
+    MOV R5, 1                 ; aumentar energia por 5 por destruir um objeto
+colisao_aumenta_energia:
     MOV [lock_energia], R5    ; aumentar a energia do rover
     MOV R5, 0
     MOV [lock_rover], R5      ; redesenhar o rover no sitio, repor os pixeis apagados pela colisao
@@ -642,22 +664,18 @@ gera_novo_objeto:
 ; **********************************************************************
 PROCESS sp_missil
 missil:
-    MOV SP, sp_missil
+    MOV SP, sp_missil       ; re-inicializar o stack pointer
+; diminuir a energia
+    MOV R0, -1
+    MOV [lock_energia], R0
+; atualizar a variavel MISSIL_DISPARADO
+    MOV R0, TRUE
+    MOV [MISSIL_DISPARADO], R0 ; agora ha um missil disparado
+; reproduzir o som associado ao missil
+    MOV R0, TIRO            ; som a reproduzir
+    MOV [PLAY_SOM], R0      ; reproduzir o som associado ao tiro
+
     MOV R0, def_missil      ; tabela que define o missil
-    MOV R3, 12              ; movimentos atuais (inicializado a 12 para reiniciar o missil)
-loop_missil:
-    MOV R4, [lock_missil]
-    MOV R5, ECRA_PRINCIPAL  ; garantir que estamos a trabalhar com o ecra certo
-    MOV [SEL_ECRA], R5      ; atualizar o ecra que esta selecionado
-    CMP R4, -3              ; se o rover tiver morrido vamos apagar o missil e terminar o processo
-    JZ apagar_missil
-    MOV R5, 12              ; verificar se ja andou as 12 vezes
-    CMP R3, R5
-    JNZ mover_missil        ; se nao andou vamos continuar a move-lo
-novo_missil:
-    CALL apaga_objeto       ; apagar o atual
-    CMP R4, 0               ; verificar se pedimos clicamos para disparar
-    JNZ loop_missil
 ; calcular o X inicial (X do rover + 1/2 do seu tamanho)
     MOV R1, [ROVER_X]
     MOV R5, NAVE_LX
@@ -666,23 +684,30 @@ novo_missil:
 ; calcular o Y inicial (Y do rover - 1)
     MOV R2, [ROVER_Y]
     SUB R2, 1
-; reset a contagem de movimentos e variavel de missil disparado
-    MOV R3, 0
-    MOV R5, TRUE
-    MOV [MISSIL_DISPARADO], R5
-
-    CALL desenha_objeto
-    JMP loop_missil
+; atualizar as coordenadas do missil
+    MOV [MISSIL_X], R1
+    MOV [MISSIL_Y], R2
+; reset a contagem de movimentos
+    MOV R3, 12
+loop_missil:
+    MOV R4, [lock_missil]
+    MOV R5, ECRA_PRINCIPAL  ; garantir que estamos a trabalhar com o ecra certo
+    MOV [SEL_ECRA], R5      ; atualizar o ecra que esta selecionado
+    CMP R4, MORTO           ; se o rover tiver morrido vamos apagar o missil e terminar o processo
+    JZ apagar_missil
+    CMP R3, 0               ; verificar se ja andou as 12 vezes
+    JZ apagar_missil        ; se andou vamos apagar
 mover_missil:
     CALL apaga_objeto
     SUB R2, 1               ; atualizar linha (Y-1)
-    CALL desenha_objeto 
-    ADD R3, 1               ; adicionar movimento a contagem
+    MOV [MISSIL_Y], R2      ; atualizar linha em memoria
+    CALL desenha_objeto
+    SUB R3, 1               ; menos um movimento a fazer
     JMP loop_missil
 apagar_missil:
     CALL apaga_objeto
-    MOV R5, FALSE           ; atualizar variavel de missil disparado
-    MOV [MISSIL_DISPARADO], R5 
+    MOV R0, FALSE
+    MOV [MISSIL_DISPARADO], R0 ; agora ja nao ha nenhum missil disparado
     RET
 
 ; **********************************************************************
@@ -713,14 +738,7 @@ fim_int_meteoros:
     RFE
 
 int_missil:
-    PUSH R0
-    MOV R0, [MISSIL_DISPARADO]
-    CMP R0, TRUE
-    JNZ fim_int_missil
-    MOV R0, 1
     MOV [lock_missil], R0
-fim_int_missil:
-    POP R0
     RFE
 
 int_energia:
@@ -1058,4 +1076,3 @@ atualiza_linha:
 fim_atualiza_linha:
     POP R0
     RET
-
