@@ -7,6 +7,7 @@ TEC_COL     EQU 0E000H  ; endereco das colunas do teclado (periferico PIN)
 LINHA_TEST  EQU 16      ; linha a testar (comecamos na 4a linha, mas por causa do shift right inicial inicializamos ao dobro)
 MASCARA_MSD EQU 0FH     ; para remover os 4 bits de maior peso, ao ler as colunas do teclado
 TSTART      EQU 10000001b ; tecla para comecar o jogo
+TPAUSA      EQU 00011000b ; tecla para pausar o jogo
 TMOVESQ     EQU 10000001b ; tecla para mover nave para a esquerda
 TMOVDIR     EQU 10000100b ; tecla para mover nave para a direita
 TMISSIL     EQU 01000010b ; tecla para disparar um missil
@@ -18,11 +19,14 @@ SENERGIA    EQU 05H     ; maximo divisor comum do valor de energia a subtrair e 
 MORTO       EQU -3      ; estado em que o jogo esta (jogador morto)
 HOME        EQU 0       ; estado em que o jogo esta (home screen)
 JOGO        EQU 1       ; estado em que o jogo esta (a ser jogado)
+PAUSADO     EQU 2       ; estado em que o jogo esta (pausado)
+
 BG_JOGO     EQU 0       ; imagem de fundo do jogo
 BG_HOME     EQU 1       ; imagem de fundo do home screen
 BG_ENERGIA  EQU 2       ; imagem de fundo de quando se morre por falta de energia
 BG_COLISAO  EQU 3       ; imagem de fundo de quando se morre por colisao
 
+DEL_ECRA    EQU 6000H   ; endereco do comando para apagar o ecra especificado
 DEL_ECRAS   EQU 6002H   ; endereco do comando para apagar todos os ecras
 SEL_ECRA    EQU 6004H   ; endereco do comando para selecionar o ecra onde vamos escrever
 SEL_LINHA   EQU 600AH   ; endereco do comando para definir a linha
@@ -30,8 +34,11 @@ SEL_COLUNA  EQU 600CH   ; endereco do comando para definir a coluna
 SEL_PIXEL   EQU 6012H   ; endereco do comando para escrever um pixel
 DEL_AVISO   EQU 6040H   ; endereco do comando para apagar o aviso de nenhum cenario selecionado
 BACKGROUND  EQU 6042H   ; endereco do comando para selecionar uma imagem de fundo
+MOSTRAR     EQU 6006H   ; endereco do comando para mostrar o ecra selecionado
+ESCONDER    EQU 6008H   ; endereco do comando para esconder o ecra selecionado
+
 ECRA_PRINCIPAL   EQU 0  ; indice do ecra principal
-ECRA_MISSIL EQU 6       ; indice do ecra do missil
+ECRA_MISSIL EQU 4       ; indice do ecra do missil
 
 OBJETO      EQU 1       ; sinaliza o gestor de objetos que queremos criar um meteoro ou nave
 TIRO        EQU 0       ; som do tiro
@@ -51,6 +58,8 @@ COMECAR     EQU 0       ; sinal para o processo de controlo, comecar jogo
 MORTE_ENG   EQU 1       ; sinal para o processo de controlo, morte por falta de energia
 MORTE_COL   EQU 2       ; sinal para o processo de controlo, morte por colisao
 REINICIAR   EQU 3       ; sinal para o processo de controlo, reiniciar o jogo
+PAUSAR      EQU 4       ; sinal para o processo de controlo, pausar o jogo
+DESPAUSAR   EQU 5       ; sinal para o processo de controlo, despausar o jogo
 
 NAVE_X      EQU 30      ; coluna da nave
 NAVE_Y      EQU 28      ; linha da nave
@@ -326,6 +335,12 @@ loop_controlo:
     MOV R1, REINICIAR
     CMP R0, R1
     JZ reiniciar_jogo
+    MOV R1, PAUSAR
+    CMP R0, R1
+    JZ pausar_jogo
+    MOV R1, DESPAUSAR
+    CMP R0, R1
+    JZ despausar_jogo
     MOV R1, MORTE_ENG
     CMP R0, R1
     JZ morte_falta_energia
@@ -355,6 +370,38 @@ reiniciar_jogo:
 
     CALL energia                ; iniciar a energia
     CALL rover                  ; iniciar o rover
+
+    JMP loop_controlo
+pausar_jogo:
+    MOV R0, 0
+pausar_jogo_ciclo:
+    MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
+    MOV [ESCONDER], R0
+    ADD R0, 1
+    CMP R0, 5 
+    JNZ pausar_jogo_ciclo
+
+    MOV R0, BG_ENERGIA          ; cenario de fundo da morte por falta de energia
+    MOV [BACKGROUND], R0        ; atualizar cenario de fundo
+
+    MOV R0, PAUSADO
+    MOV [estado], R0            ; atualizar estado
+
+    JMP loop_controlo
+despausar_jogo:
+    MOV R0, 0
+despausar_jogo_ciclo:
+    MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
+    MOV [MOSTRAR], R0
+    ADD R0, 1
+    CMP R0, 5 
+    JNZ despausar_jogo_ciclo
+
+    MOV R0, BG_JOGO             ; cenario de fundo da morte por falta de energia
+    MOV [BACKGROUND], R0        ; atualizar cenario de fundo
+
+    MOV R0, JOGO
+    MOV [estado], R0            ; atualizar estado
 
     JMP loop_controlo
 morte_falta_energia:
@@ -431,6 +478,8 @@ loop_espera:
     JZ home
     CMP R0, JOGO        ; estamos a jogar o jogo?
     JZ jogo
+    CMP R0, PAUSADO
+    JZ pausado
     CMP R0, MORTO
     JZ morto
 home:
@@ -445,6 +494,13 @@ morto:
     MOV R0, TSTART
     CMP R5, R0
     MOV R0, REINICIAR
+    JZ unlock_controlo
+    JMP espera_tecla
+pausado:
+    ; despausar
+    MOV R0, TPAUSA
+    CMP R5, R0
+    MOV R0, DESPAUSAR
     JZ unlock_controlo
     JMP espera_tecla
 jogo:
@@ -463,6 +519,12 @@ jogo:
     MOV R0, TMISSIL
     CMP R5, R0
     JZ check_missil
+
+    ; caso pausa o jogo
+    MOV R0, TPAUSA
+    CMP R5, R0
+    MOV R0, PAUSAR
+    JZ unlock_controlo
 
     JMP espera_tecla
 largou:                 ; neste ciclo espera-se ate largar a tecla
@@ -738,7 +800,13 @@ fim_int_meteoros:
     RFE
 
 int_missil:
+    PUSH R0
+    MOV R0, [estado]
+    CMP R0, JOGO
+    JNZ fim_int_missil
     MOV [lock_missil], R0
+fim_int_missil:
+    POP R0
     RFE
 
 int_energia:
