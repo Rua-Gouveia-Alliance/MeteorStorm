@@ -69,9 +69,9 @@ OBJETO_DY   EQU 2       ; altura do inimigo/meteoro distante
 OBJETO_MDX  EQU 1       ; largura do inimigo/meteoro muito distante
 OBJETO_MDY  EQU 1       ; altura do inimigo/meteoro muito distante
 DISTANTE    EQU 3       ; coordenada a partir da qual se considera distante
-LONGE       EQU 5       ; coordenada a partir da qual se considera longe
+LONGE       EQU 6       ; coordenada a partir da qual se considera longe
 MEDIO       EQU 9       ; coordenada a partir da qual se considera distancia media
-PERTO       EQU 14      ; coordenada a partir da qual se considera perto
+PERTO       EQU 12      ; coordenada a partir da qual se considera perto
 
 MISSIL_LX   EQU 1
 MISSIL_LY   EQU 1
@@ -85,6 +85,7 @@ OFFSET      EQU 15      ; numero a multiplicar pela instancia do objeto para hav
 
 RED         EQU 0FF00H  ; cor vermelho em ARGB
 GREY        EQU 0FFFFH  ; cor cinzento em ARGB
+BLUE        EQU 0F0FFH  ; cor azul em ARGB
 GREEN       EQU 0F0F0H  ; cor verde em ARGB
 YELLOW      EQU 0FFF0H  ; cor amarelo em ARGB
 PURPLE      EQU 0FA3AH  ; cor roxa em ARGB
@@ -114,6 +115,9 @@ sp_rover:
 
     STACK 100H          ; espaco reservado para a stack do processo que trata dos misseis
 sp_missil:
+
+    STACK 100H          ; espaco reservado para a stack do processo que trata da animacao
+sp_animacao:
 
     STACK 100H          ; espaco reservado para a stack do processo que trata dos objetos (meteoros bons e inimigos), indice 0
 sp_objeto_0:
@@ -149,10 +153,13 @@ lock_objeto:            ; variaveis para controlar o processo objeto
     LOCK    0           ; objeto 2
     LOCK    0           ; objeto 3
 
-lock_gere_objetos:
+lock_gere_objetos:      ; variavel para controlar o processo gere_objetos
     LOCK    0
 
-lock_missil:
+lock_missil:            ; variavel para controlar o processo missil
+    LOCK    0
+
+lock_animacao:          ; variavel para controlar o processo animacao
     LOCK    0
 
 estado:
@@ -198,14 +205,6 @@ escolhe_objeto:
     WORD    METEORO_BOM
     WORD    INIMIGO
     WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    METEORO_BOM
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    INIMIGO
-    WORD    METEORO_BOM
 
 def_muito_distante:     ; tabela que define o inimigo/metero bom muito distante (largura, altura e cor dos pixeis)
     WORD    OBJETO_MDX
@@ -277,6 +276,38 @@ distancias_meteoro:
     WORD def_meteoro_medio
     WORD def_meteoro_longe
     WORD def_distante
+
+def_frame_1:            ; tabela que define o primeiro frame da animacao de explosao (largura, altura e cor dos pixeis)
+    WORD    OBJETO_PX
+    WORD    OBJETO_PY
+    WORD    0, 0, 0, 0, 0
+    WORD    0, 0, BLUE, 0, 0
+    WORD    0, BLUE, 0, BLUE, 0
+    WORD    0, 0, BLUE, 0, 0
+    WORD    0, 0, 0, 0, 0
+
+def_frame_2:            ; tabela que define o segundo frame da animacao de explosao (largura, altura e cor dos pixeis)
+    WORD    OBJETO_PX
+    WORD    OBJETO_PY
+    WORD    0, BLUE, 0, BLUE, 0
+    WORD    BLUE, 0, BLUE, 0, BLUE
+    WORD    0, BLUE, 0, BLUE, 0
+    WORD    BLUE, 0, BLUE, 0, BLUE
+    WORD    0, BLUE, 0, BLUE, 0
+
+def_frame_3:            ; tabela que define o terceiro frame da animacao de explosao (largura, altura e cor dos pixeis)
+    WORD    OBJETO_PX
+    WORD    OBJETO_PY
+    WORD    BLUE, 0, BLUE, 0, BLUE
+    WORD    0, BLUE, 0, BLUE, 0
+    WORD    BLUE, 0, BLUE, 0, BLUE
+    WORD    0, BLUE, 0, BLUE, 0
+    WORD    BLUE, 0, BLUE, 0, BLUE
+
+frames:
+    WORD def_frame_1
+    WORD def_frame_2
+    WORD def_frame_3
 
 ; **********************************************************************
 ; * Codigo
@@ -627,7 +658,7 @@ move_baixo:
     CMP R4, INIMIGO           ; o objeto que colidiu e um inimigo?
     JZ colisao_inimigo
     MOV R5, 2                 ; vamos aumentar a energia por 10 ja que colidimos com um meteoro bom
-    JMP colisao_aumenta_energia
+    JMP colisao_aumento_energia
 verifica_missil:
 ; verificar colisao com o missil
     MOV R5, [MISSIL_DISPARADO]
@@ -642,7 +673,10 @@ verifica_missil:
     MOV R5, MORTO
     MOV [lock_missil], R5     ; eliminar o missil
     MOV R5, 1                 ; aumentar energia por 5 por destruir um objeto
-colisao_aumenta_energia:
+    CMP R4, INIMIGO           ; o objeto que colidiu e um inimigo?
+    JNZ colisao_aumento_energia
+    CALL animacao             ; se chocamos contra um inimigo ha animacao
+colisao_aumento_energia:
     MOV [lock_energia], R5    ; aumentar a energia do rover
     MOV R5, 0
     MOV [lock_rover], R5      ; redesenhar o rover no sitio, repor os pixeis apagados pela colisao
@@ -711,6 +745,31 @@ apagar_missil:
     RET
 
 ; **********************************************************************
+; Processo
+;
+; animacao - Processo que trata de animar a explosao de um objeto
+;
+; Argumentos: R1 e R2 -> Coordenadas do objeto que explodiu
+;             R9 -> Numero da instancia do objeto que explodiu
+; **********************************************************************
+PROCESS sp_animacao
+animacao:
+    MOV SP, sp_animacao     ; reinicializar o stack pointer
+    MOV R3, frames          ; tabela com os varios frames da animacao
+    MOV R4, 0               ; numero inicial do indice do frame
+loop_animacao:
+    MOV [SEL_ECRA], R9      ; atualizar o ecra que esta selecionado
+    MOV R0, [R3+R4]         ; endereco da tabela que define o frame
+    CALL desenha_objeto     ; desenhar o frame
+    MOV R5, [lock_animacao] ; ler o lock para esperar ate a altura de mostrar o proximo frame
+    MOV [SEL_ECRA], R9      ; atualizar o ecra que esta selecionado
+    CALL apaga_objeto       ; apagar o frame antigo
+    ADD R4, 2               ; indice seguinte da tabela
+    CMP R4, 6               ; verificar se nao excedemos o indice maximo
+    JNZ loop_animacao       ; enquanto nao excedemos continuamos
+    RET
+
+; **********************************************************************
 ; * Rotinas de interrupcoes
 ; **********************************************************************
 
@@ -739,6 +798,7 @@ fim_int_meteoros:
 
 int_missil:
     MOV [lock_missil], R0
+    MOV [lock_animacao], R0
     RFE
 
 int_energia:
@@ -798,11 +858,11 @@ gera_indice:
     MOV R1, TEC_COL             ; endereco do periferico de entrada
     MOV R4, 0                   ; inicializamos R3 a 0 para depois somar valores aleatorios
     MOVB R0, [R1]               ; ler do periferico de entrada (colunas)
-    SHR R0, 5                   ; elimina bits para alem dos bits 4-7
+    SHR R0, 7                   ; elimina bits para alem do ultimo
     ADD R4, R0                  ; somar ao indice o valor aleatorio
     MOVB R0, [R1]               ; ler do periferico de entrada (colunas)
     SHR R0, 6                   ; elimina bits para alem dos bits 5-7
-    ADD R4, R0                  ; somar ao indice o valor aleatorio, agora o indice e um numero aleatorio de 0-12
+    ADD R4, R0                  ; somar ao indice o valor aleatorio, agora o indice e um numero aleatorio de 0-4
     MOV R1, 2
     MUL R1, R4                  ; multiplicar por 2 para aceder a tabela
     MOV R0, escolhe_objeto
