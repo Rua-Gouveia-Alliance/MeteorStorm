@@ -14,7 +14,7 @@ TMISSIL     EQU 01000010b ; tecla para disparar um missil
 
 MAX_ENERGIA EQU 064H    ; valor inicial da energia e maximo
 MIN_ENERGIA EQU 0       ; valor minimo da energia
-SENERGIA    EQU 05H     ; maximo divisor comum do valor de energia a subtrair e adicionar
+FENERGIA    EQU 05H     ; maximo divisor comum do valor de energia a subtrair e adicionar
 
 MORTO       EQU -3      ; estado em que o jogo esta (jogador morto)
 HOME        EQU 0       ; estado em que o jogo esta (home screen)
@@ -36,13 +36,14 @@ DEL_AVISO   EQU 6040H   ; endereco do comando para apagar o aviso de nenhum cena
 BACKGROUND  EQU 6042H   ; endereco do comando para selecionar uma imagem de fundo
 MOSTRAR     EQU 6006H   ; endereco do comando para mostrar o ecra selecionado
 ESCONDER    EQU 6008H   ; endereco do comando para esconder o ecra selecionado
+PLAY_SOM    EQU 605AH   ; endereco do comando para reproduzir um som
 
 ECRA_PRINCIPAL   EQU 0  ; indice do ecra principal
 ECRA_MISSIL EQU 4       ; indice do ecra do missil
 
-OBJETO      EQU 1       ; sinaliza o gestor de objetos que queremos criar um meteoro ou nave
-TIRO        EQU 0       ; som do tiro
-PLAY_SOM    EQU 605AH   ; endereco do comando para reproduzir um som
+STIRO        EQU 0       ; som do tiro
+SEXPLOSAO    EQU 1       ; som da explosao
+SENERGIA     EQU 2       ; som da energia
 
 MIN_COLUNA  EQU 0       ; numero da coluna mais a esquerda
 MAX_COLUNA  EQU 63      ; numero da coluna mais a direita
@@ -663,7 +664,7 @@ ciclo_energia:
     JMP muda_energia            ; alterar a energia em funcao do calor lido
 muda_energia:
 ; mudar o valor da energia
-    MOV R2, 5
+    MOV R2, FENERGIA
     MUL R0, R2
     ADD R1, R0          ; subtrair ou aumentar energia
     MOV R3, MAX_ENERGIA
@@ -801,7 +802,7 @@ move_baixo:
     CMP R4, INIMIGO           ; o objeto que colidiu e um inimigo?
     JZ colisao_inimigo
     MOV R5, 2                 ; vamos aumentar a energia por 10 ja que colidimos com um meteoro bom
-    JMP colisao_aumento_energia
+    JMP som_colisao_aumento_energia
 verifica_missil:
 ; verificar colisao com o missil
     MOV R5, [MISSIL_DISPARADO]
@@ -817,8 +818,16 @@ verifica_missil:
     MOV [lock_missil], R5     ; eliminar o missil
     MOV R5, 1                 ; aumentar energia por 5 por destruir um objeto
     CMP R4, INIMIGO           ; o objeto que colidiu e um inimigo?
-    JNZ colisao_aumento_energia
-    CALL animacao             ; se destruimos um inimigo ha animacao
+    JNZ som_colisao_aumento_energia
+; reproduzir o som associado a explosao do inimigo
+    MOV R7, SEXPLOSAO         ; som a reproduzir
+    MOV [PLAY_SOM], R7        ; reproduzir o som associado a explosao
+    CALL animacao             ; se chocamos contra um inimigo ha animacao
+    JMP colisao_aumento_energia
+som_colisao_aumento_energia:
+; reproduzir o som associado ao ganho de energia
+    MOV R7, SENERGIA          ; som a reproduzir
+    MOV [PLAY_SOM], R7        ; reproduzir o som associado a energia
 colisao_aumento_energia:
     MOV [lock_energia], R5    ; aumentar a energia do rover
     MOV R5, 0
@@ -849,7 +858,7 @@ missil:
     MOV R0, TRUE
     MOV [MISSIL_DISPARADO], R0 ; agora ha um missil disparado
 ; reproduzir o som associado ao missil
-    MOV R0, TIRO            ; som a reproduzir
+    MOV R0, STIRO            ; som a reproduzir
     MOV [PLAY_SOM], R0      ; reproduzir o som associado ao tiro
 
     MOV R0, def_missil      ; tabela que define o missil
