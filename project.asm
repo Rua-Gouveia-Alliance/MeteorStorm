@@ -53,6 +53,8 @@ MAX_LINHA   EQU 31      ; numero da linha mais abaixo
 DELAY       EQU 2000H   ; atraso para limitar a velocidade de movimento da nave
 
 DIREITA     EQU 1       ; valor a adicionar para ir para a direita
+ESQUERDA    EQU -1      ; valor a adicionar para ir para a esquerda
+DISPARAR    EQU 2       ; sinal para o processo do rover, disparar um missil
 
 COMECAR     EQU 0       ; sinal para o processo de controlo, comecar jogo
 MORTE_ENG   EQU 1       ; sinal para o processo de controlo, morte por falta de energia
@@ -86,7 +88,10 @@ MISSIL_LX   EQU 1
 MISSIL_LY   EQU 1
 
 METEORO_BOM EQU 0       ; codigo para gerar um meteoro bom (processo objetos)
-INIMIGO     EQU 1       ; codigo para gerar um inimigo (processo objetos)
+INIMIGO1    EQU 1       ; codigo para gerar um inimigo (processo objetos)
+INIMIGO2    EQU 2       ; codigo para gerar um inimigo (processo objetos)
+INIMIGO3    EQU 3       ; codigo para gerar um inimigo (processo objetos)
+INIMIGO     EQU 4       ; codigo para identificar um inimigo generico
 
 NUM_OBJS    EQU 4       ; num de objetos (meteoros bons e inimigos) no jogo
 
@@ -210,10 +215,10 @@ def_missil:
 escolhe_objeto:
 ; tabela que tem meteoros bons e inimigos para ajudar a determinar de forma pseudo aleatoria
 ; qual dos dois e gerado
-    WORD    INIMIGO
     WORD    METEORO_BOM
-    WORD    INIMIGO
-    WORD    INIMIGO
+    WORD    INIMIGO1
+    WORD    INIMIGO2
+    WORD    INIMIGO3
 
 def_muito_distante:     ; tabela que define o inimigo/metero bom muito distante (largura, altura e cor dos pixeis)
     WORD    OBJETO_MDX
@@ -226,7 +231,7 @@ def_distante:           ; tabela que define o inimigo/metero bom distante (largu
     WORD    GREY, GREY
     WORD    GREY, GREY
 
-def_inimigo_perto:      ; tabela que define o inimigo perto (largura, altura e cor dos pixeis)
+def_inimigo1_perto:     ; tabela que define o inimigo perto (largura, altura e cor dos pixeis)
     WORD    OBJETO_PX
     WORD    OBJETO_PY
     WORD    RED, 0, 0, 0, RED
@@ -235,7 +240,7 @@ def_inimigo_perto:      ; tabela que define o inimigo perto (largura, altura e c
     WORD    RED, 0, RED, 0, RED
     WORD    RED, 0, 0, 0, RED
 
-def_inimigo_medio:      ; tabela que define o inimigo a distancia media (largura, altura e cor dos pixeis)
+def_inimigo1_medio:     ; tabela que define o inimigo a distancia media (largura, altura e cor dos pixeis)
     WORD    OBJETO_MX
     WORD    OBJETO_MY
     WORD    RED, 0, 0, RED
@@ -243,17 +248,77 @@ def_inimigo_medio:      ; tabela que define o inimigo a distancia media (largura
     WORD    0, RED, RED, 0
     WORD    RED, 0, 0, RED
 
-def_inimigo_longe:      ; tabela que define o inimigo longe (largura, altura e cor dos pixeis)
+def_inimigo1_longe:     ; tabela que define o inimigo longe (largura, altura e cor dos pixeis)
     WORD    OBJETO_LX
     WORD    OBJETO_LY
     WORD    RED, 0, RED
     WORD    0, RED, 0
     WORD    RED, 0, RED
 
-distancias_inimigo:
-    WORD def_inimigo_perto
-    WORD def_inimigo_medio
-    WORD def_inimigo_longe
+distancias_inimigo1:
+    WORD def_inimigo1_perto
+    WORD def_inimigo1_medio
+    WORD def_inimigo1_longe
+    WORD def_distante
+
+def_inimigo2_perto:     ; tabela que define o inimigo perto (largura, altura e cor dos pixeis)
+    WORD    OBJETO_PX
+    WORD    OBJETO_PY
+    WORD    RED, 0, 0, 0, RED
+    WORD    0, RED, 0, RED, 0
+    WORD    0, 0, RED, 0, 0
+    WORD    0, RED, 0, RED, 0
+    WORD    RED, 0, 0, 0, RED
+
+def_inimigo2_medio:     ; tabela que define o inimigo a distancia media (largura, altura e cor dos pixeis)
+    WORD    OBJETO_MX
+    WORD    OBJETO_MY
+    WORD    RED, 0, 0, RED
+    WORD    0, RED, RED, 0
+    WORD    0, RED, RED, 0
+    WORD    RED, 0, 0, RED
+
+def_inimigo2_longe:     ; tabela que define o inimigo longe (largura, altura e cor dos pixeis)
+    WORD    OBJETO_LX
+    WORD    OBJETO_LY
+    WORD    0, RED, 0
+    WORD    RED, 0, RED
+    WORD    0, RED, 0
+
+distancias_inimigo2:
+    WORD def_inimigo2_perto
+    WORD def_inimigo2_medio
+    WORD def_inimigo2_longe
+    WORD def_distante
+
+def_inimigo3_perto:     ; tabela que define o inimigo perto (largura, altura e cor dos pixeis)
+    WORD    OBJETO_PX
+    WORD    OBJETO_PY
+    WORD    0, 0, RED, 0, 0
+    WORD    RED, 0, RED, 0, RED
+    WORD    RED, RED, RED, RED, RED
+    WORD    RED, 0, RED, 0, RED
+    WORD    0, 0, RED, 0, 0
+
+def_inimigo3_medio:     ; tabela que define o inimigo a distancia media (largura, altura e cor dos pixeis)
+    WORD    OBJETO_MX
+    WORD    OBJETO_MY
+    WORD    RED, 0, 0, RED
+    WORD    RED, RED, RED, RED
+    WORD    RED, 0, 0, RED
+    WORD    RED, 0, 0, RED
+
+def_inimigo3_longe:     ; tabela que define o inimigo longe (largura, altura e cor dos pixeis)
+    WORD    OBJETO_LX
+    WORD    OBJETO_LY
+    WORD    RED, RED, 0
+    WORD    RED, 0, RED
+    WORD    0, RED, RED
+
+distancias_inimigo3:
+    WORD def_inimigo3_perto
+    WORD def_inimigo3_medio
+    WORD def_inimigo3_longe
     WORD def_distante
 
 def_meteoro_perto:      ; tabela que define o meteoro bom perto (largura, altura e cor dos pixeis)
@@ -509,56 +574,59 @@ loop_espera:
     JZ home
     CMP R0, JOGO        ; estamos a jogar o jogo?
     JZ jogo
-    CMP R0, PAUSADO
+    CMP R0, PAUSADO     ; estamos com o jogo em pausa?
     JZ pausado
-    CMP R0, MORTO
+    CMP R0, MORTO       ; estamos mortos?
     JZ morto
 home:
     ; premir c para comecar
-    MOV R0, TSTART
-    CMP R5, R0
-    MOV R0, COMECAR
-    JZ unlock_controlo
+    MOV R0, TSTART      ; agora R0 tem as coordenadas da tecla que comeca
+    CMP R5, R0          ; verifica se carregamos nessa tecla
+    MOV R0, COMECAR     ; prepara argumento para o processo controlo
+    JZ unlock_controlo  ; efetuar a operacao caso tenha sido pressionada
     JMP espera_tecla
 morto:
     ; premir c para reiniciar o jogo
-    MOV R0, TSTART
-    CMP R5, R0
-    MOV R0, REINICIAR
-    JZ unlock_controlo
+    MOV R0, TSTART      ; agora R0 tem as coordenadas da tecla que comeca
+    CMP R5, R0          ; verifica se carregamos nessa tecla
+    MOV R0, REINICIAR   ; prepara argumento para o processo controlo
+    JZ unlock_controlo  ; efetuar a operacao caso tenha sido pressionada
     JMP espera_tecla
 pausado:
     ; despausar
-    MOV R0, TPAUSA
-    CMP R5, R0
-    MOV R0, DESPAUSAR
-    JZ unlock_controlo
+    MOV R0, TPAUSA      ; agora R0 tem as coordenadas da tecla que despausa
+    CMP R5, R0          ; verifica se carregamos nessa tecla
+    MOV R0, DESPAUSAR   ; prepara argumento para o processo controlo
+    JZ unlock_controlo  ; efetuar a operacao caso tenha sido pressionada
     JMP espera_tecla
 jogo:
     ; caso move para esquerda
-    MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move a nave para a esquerda
+    MOV R0, TMOVESQ     ; agora R0 tem as coordenadas da tecla que move o rover para a esquerda
     CMP R5, R0          ; verifica se carregamos nessa tecla
-    MOV R0, -1          ; prepara argumento para move_nave (-1 para esquerda)
-    JZ unlock_rover     ; efetuar a operacao caso tenha sido pressionada
+    MOV R0, ESQUERDA    ; prepara argumento para o processo rover
+    JZ unlock_rover_mov ; efetuar a operacao caso tenha sido pressionada
 
     ; caso move para direita
-    MOV R0, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move a nave para a direita
+    MOV R0, TMOVDIR     ; agora R0 tem as coordenadas da tecla que move o rover para a direita
     CMP R5, R0          ; verifica se carregamos nessa tecla
-    MOV R0, 1           ; prepara argumento para move_nave (1 para direita)
-    JZ unlock_rover     ; efetuar a operacao caso tenha sido pressionada
+    MOV R0, DIREITA     ; prepara argumento para o processo rover
+    JZ unlock_rover_mov ; efetuar a operacao caso tenha sido pressionada
 
-    MOV R0, TMISSIL
-    CMP R5, R0
-    JZ check_missil
+    ; disparo do missil
+    MOV R0, TMISSIL     ; agora R0 tem as coordenadas da tecla que dispara
+    CMP R5, R0          ; verifica se carregamos nessa tecla
+    MOV R0, DISPARAR    ; prepara argumento para o processo rover
+    JZ unlock_rover_disparo ; efetuar a operacao caso tenha sido pressionada
 
     ; caso pausa o jogo
-    MOV R0, TPAUSA
-    CMP R5, R0
-    MOV R0, PAUSAR
-    JZ unlock_controlo
+    MOV R0, TPAUSA      ; agora R0 tem as coordenadas da tecla que move o rover para a esquerda
+    CMP R5, R0          ; verifica se carregamos nessa tecla
+    MOV R0, PAUSAR      ; prepara argumento para o processo controlo
+    JZ unlock_controlo  ; efetuar a operacao caso tenha sido pressionada
 
     JMP espera_tecla
 largou:                 ; neste ciclo espera-se ate largar a tecla
+    YIELD               ; ciclo possivelmente infinito
     MOVB [R3], R9       ; escrever no periferico de saída (linhas)
     MOVB R0, [R4]       ; ler do periferico de entrada (colunas)
     AND  R0, R5         ; elimina bits para além dos bits 0-3
@@ -566,19 +634,15 @@ largou:                 ; neste ciclo espera-se ate largar a tecla
     JNZ largou          ; se ainda houver uma tecla premida repete o loop
     JMP espera_tecla    ; volta ao da funcao
 unlock_controlo:
-    MOV [lock_controlo], R0
+    MOV [lock_controlo], R0 ; passar os argumentos ao processo
     JMP largou
-unlock_rover:
-    MOV [lock_rover], R0
+unlock_rover_disparo:
+    MOV [lock_rover], R0    ; passar os argumentos ao processo
+    JMP largou
+unlock_rover_mov:
+    MOV [lock_rover], R0    ; passar os argumentos ao processo
     CALL delay
     JMP espera_tecla
-check_missil:
-    MOV R0, [MISSIL_DISPARADO]
-    CMP R0, TRUE        ; ja disparamos um missil?
-    JZ fim_check_missil
-    CALL missil
-fim_check_missil:
-    JMP largou
 
 ; **********************************************************************
 ; Processo
@@ -620,11 +684,7 @@ morte_energia:
     MOV [DISPLAYS], R0  ; mostrar 0 de energia enquanto nao estamos a jogar o jogo
     MOV R0, MORTE_ENG
     MOV [lock_controlo], R0
-    RET
 elimina_energia:
-    MOV R1, 0
-    CALL hex_p_dec_representacao
-    MOV [DISPLAYS], R0  ; mostrar 0 de energia enquanto nao estamos a jogar o jogo
     RET
 
 ; **********************************************************************
@@ -637,19 +697,21 @@ PROCESS sp_rover
 rover:
     MOV SP, sp_rover          ; re-inicializar o stack pointer
     MOV R0, def_rover         ; tabela que define o rover
-    MOV R1, NAVE_X
-    MOV R2, NAVE_Y
-    MOV R4, ECRA_PRINCIPAL         ; garantir que estamos a trabalhar com o ecra certo
+    MOV R1, NAVE_X            ; coordenadas default
+    MOV R2, NAVE_Y            ; coordenadas default
+    MOV R4, ECRA_PRINCIPAL    ; garantir que estamos a trabalhar com o ecra certo
     MOV [SEL_ECRA], R4        ; atualizar o ecra que esta selecionado
     CALL desenha_objeto       ; desenhar o rover inicial no ecra
 loop_rover:
     MOV [ROVER_X], R1         ; atualizar posicao do rover global
     MOV [ROVER_Y], R2
-    MOV R3, [lock_rover]      ; ler o LOCK, contem a direcao em que mexer o rover
-    MOV R4, ECRA_PRINCIPAL         ; garantir que estamos a trabalhar com o ecra certo
+    MOV R3, [lock_rover]      ; ler o LOCK, contem a direcao em que mexer o rover ou se vamos disparar
+    MOV R4, ECRA_PRINCIPAL    ; garantir que estamos a trabalhar com o ecra certo
     MOV [SEL_ECRA], R4        ; atualizar o ecra que esta selecionado
     CMP R3, MORTO             ; o rover morreu?
     JZ elimina_rover
+    CMP R3, DISPARAR          ; vamos disparar?
+    JZ check_missil
     CMP R3, DIREITA           ; vamos mexer para a direita?
     JZ move_direita
 move_esquerda:
@@ -666,6 +728,12 @@ move_direita:
     CMP R4, R5          ; verifica se ja esta na posicao mais a direita
     JGT loop_rover      ; se ja estiver nao se mexe
     CALL move_x
+    JMP loop_rover
+check_missil:
+    MOV R4, [MISSIL_DISPARADO]
+    CMP R4, TRUE        ; ja disparamos um missil?
+    JZ loop_rover
+    CALL missil         ; disparar o missil
     JMP loop_rover
 elimina_rover:
     CALL apaga_objeto
@@ -692,13 +760,26 @@ novo_objeto:
     MOV [SEL_ECRA], R9        ; atualizar o ecra que esta selecionado
     CALL desenha_objeto       ; desenhar o objeto inicial no ecra
     CALL gera_indice          ; decidir se o objeto e um inimigo ou um meteoro bom
-    CMP R4, INIMIGO           ; calhou um inimigo?
-    JZ inimigo
+    CMP R4, INIMIGO1          ; calhou um inimigo do primeiro tipo?
+    JZ inimigo1
+    CMP R4, INIMIGO2          ; calhou um inimigo do segundo tipo?
+    JZ inimigo2
+    CMP R4, INIMIGO3          ; calhou um inimigo do terceiro tipo?
+    JZ inimigo3
 meteoro_bom:
     MOV R3, distancias_meteoro; tabela que define o meteoro bom em funcao da distancia
     JMP loop_objeto
-inimigo:
-    MOV R3, distancias_inimigo; tabela que define o inimigo em funcao da distancia
+inimigo1:
+    MOV R3, distancias_inimigo1; tabela que define o inimigo em funcao da distancia
+    MOV R4, INIMIGO            ; codigo generico de inimigo
+    JMP loop_objeto
+inimigo2:
+    MOV R3, distancias_inimigo2; tabela que define o inimigo em funcao da distancia
+    MOV R4, INIMIGO            ; codigo generico de inimigo
+    JMP loop_objeto
+inimigo3:
+    MOV R3, distancias_inimigo3; tabela que define o inimigo em funcao da distancia
+    MOV R4, INIMIGO            ; codigo generico de inimigo
 loop_objeto:
     MOV R11, lock_objeto      ; endereco da tabela com os locks das varias instancias
     MOV R5, [R11+R10]         ; ler o LOCK
@@ -711,8 +792,8 @@ move_baixo:
     JZ gera_novo_objeto       ; se estivermos na ultima linha so queremos apagar o objeto e criar um novo
     CALL move_objeto_y
 ; verificar colisao com o rover
-    MOV R5, def_rover
-    MOV R6, [ROVER_X]
+    MOV R5, def_rover         ; endereco da tabela que define o objeto comque queremos verificar colisao
+    MOV R6, [ROVER_X]         ; coordenadas do objeto com que queremos verificar colisao (rover)
     MOV R7, [ROVER_Y]
     CALL verifica_colisao
     CMP R8, FALSE             ; nao houve colisao?
@@ -724,10 +805,10 @@ move_baixo:
 verifica_missil:
 ; verificar colisao com o missil
     MOV R5, [MISSIL_DISPARADO]
-    CMP R5, FALSE
+    CMP R5, FALSE             ; ha algum missil disparado neste momento?
     JZ loop_objeto            ; se nao ha nenhum missil disparado nao ha nada a fazer
-    MOV R5, def_missil
-    MOV R6, [MISSIL_X]
+    MOV R5, def_missil        ; endereco da tabela que define o objeto comque queremos verificar colisao
+    MOV R6, [MISSIL_X]        ; coordenadas do objeto com que queremos verificar colisao (missil)
     MOV R7, [MISSIL_Y]
     CALL verifica_colisao
     CMP R8, FALSE             ; nao houve colisao?
@@ -737,7 +818,7 @@ verifica_missil:
     MOV R5, 1                 ; aumentar energia por 5 por destruir um objeto
     CMP R4, INIMIGO           ; o objeto que colidiu e um inimigo?
     JNZ colisao_aumento_energia
-    CALL animacao             ; se chocamos contra um inimigo ha animacao
+    CALL animacao             ; se destruimos um inimigo ha animacao
 colisao_aumento_energia:
     MOV [lock_energia], R5    ; aumentar a energia do rover
     MOV R5, 0
