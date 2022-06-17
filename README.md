@@ -47,7 +47,7 @@ com o jogo**:
 Passando às práticas adotadas no desenvolvimento do programa,
 consideramos que podem ser divididas nas seguintes categorias:
 
-**Clareza de código**:
+### **Clareza de código**:
 
 
 - Utilização extensa da diretiva EQU , evitando a utilização direta de
@@ -62,7 +62,7 @@ processo energia é o único que interage diretamente com a mesma).
 - Comentários abundantes para facilitar a interpretação do código
 assembly
 
-**Desempenho**:
+### **Desempenho**:
 
 - O uso de processos apresenta uma vantagem em relação às rotinas
 cooperativas
