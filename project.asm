@@ -89,11 +89,13 @@ PERTO       EQU 12      ; coordenada a partir da qual se considera perto
 MISSIL_LX   EQU 1
 MISSIL_LY   EQU 1
 
-METEORO_BOM EQU 0       ; codigo para gerar um meteoro bom (processo objetos)
-INIMIGO1    EQU 1       ; codigo para gerar um inimigo (processo objetos)
-INIMIGO2    EQU 2       ; codigo para gerar um inimigo (processo objetos)
-INIMIGO3    EQU 3       ; codigo para gerar um inimigo (processo objetos)
-INIMIGO     EQU 4       ; codigo para identificar um inimigo generico
+METEORO_BOM EQU 0       ; codigo para identificar um meteoro bom generico
+INIMIGO     EQU 1       ; codigo para identificar um inimigo generico
+INIMIGO1    EQU 2       ; codigo para gerar um inimigo (processo objetos)
+INIMIGO2    EQU 3       ; codigo para gerar um inimigo (processo objetos)
+INIMIGO3    EQU 4       ; codigo para gerar um inimigo (processo objetos)
+METEORO_BOM1 EQU 5      ; codigo para gerar um meteoro bom (processo objetos)
+METEORO_BOM2 EQU 6      ; codigo para gerar um meteoro bom (processo objetos)
 
 NUM_OBJS    EQU 4       ; num de objetos (meteoros bons e inimigos) no jogo
 
@@ -217,7 +219,11 @@ def_missil:
 escolhe_objeto:
 ; tabela que tem meteoros bons e inimigos para ajudar a determinar de forma pseudo aleatoria
 ; qual dos dois e gerado
-    WORD    METEORO_BOM
+    WORD    METEORO_BOM1
+    WORD    INIMIGO1
+    WORD    INIMIGO2
+    WORD    INIMIGO3
+    WORD    METEORO_BOM2
     WORD    INIMIGO1
     WORD    INIMIGO2
     WORD    INIMIGO3
@@ -323,7 +329,7 @@ distancias_inimigo3:
     WORD def_inimigo3_longe
     WORD def_distante
 
-def_meteoro_perto:      ; tabela que define o meteoro bom perto (largura, altura e cor dos pixeis)
+def_meteoro1_perto:      ; tabela que define o meteoro bom perto (largura, altura e cor dos pixeis)
     WORD    OBJETO_PX
     WORD    OBJETO_PY
     WORD    0, GREEN, GREEN, GREEN, 0
@@ -332,7 +338,7 @@ def_meteoro_perto:      ; tabela que define o meteoro bom perto (largura, altura
     WORD    GREEN, GREEN, GREEN, GREEN, GREEN
     WORD    0, GREEN, GREEN, GREEN, 0
 
-def_meteoro_medio:      ; tabela que define o meteoro bom a distancia media (largura, altura e cor dos pixeis)
+def_meteoro1_medio:      ; tabela que define o meteoro bom a distancia media (largura, altura e cor dos pixeis)
     WORD    OBJETO_MX
     WORD    OBJETO_MY
     WORD    0, GREEN, GREEN, 0
@@ -340,17 +346,47 @@ def_meteoro_medio:      ; tabela que define o meteoro bom a distancia media (lar
     WORD    GREEN, GREEN, GREEN, GREEN
     WORD    0, GREEN, GREEN, 0
 
-def_meteoro_longe:      ; tabela que define o meteoro bom longe (largura, altura e cor dos pixeis)
+def_meteoro1_longe:      ; tabela que define o meteoro bom longe (largura, altura e cor dos pixeis)
     WORD    OBJETO_LX
     WORD    OBJETO_LY
     WORD    0, GREEN, 0
     WORD    GREEN, GREEN, GREEN
     WORD    0, GREEN, 0
 
-distancias_meteoro:
-    WORD def_meteoro_perto
-    WORD def_meteoro_medio
-    WORD def_meteoro_longe
+distancias_meteoro1:
+    WORD def_meteoro1_perto
+    WORD def_meteoro1_medio
+    WORD def_meteoro1_longe
+    WORD def_distante
+
+def_meteoro2_perto:      ; tabela que define o meteoro bom perto (largura, altura e cor dos pixeis)
+    WORD    OBJETO_PX
+    WORD    OBJETO_PY
+    WORD    0, 0, GREEN, 0, 0
+    WORD    0, GREEN, 0, 0, 0
+    WORD    GREEN, GREEN, GREEN, GREEN, GREEN
+    WORD    0, 0, 0, GREEN, 0
+    WORD    0, 0, GREEN, 0, 0
+
+def_meteoro2_medio:      ; tabela que define o meteoro bom a distancia media (largura, altura e cor dos pixeis)
+    WORD    OBJETO_MX
+    WORD    OBJETO_MY
+    WORD    0, GREEN, 0, 0
+    WORD    GREEN, GREEN, GREEN, GREEN
+    WORD    0, 0, GREEN, 0
+    WORD    0, GREEN, 0, 0
+
+def_meteoro2_longe:      ; tabela que define o meteoro bom longe (largura, altura e cor dos pixeis)
+    WORD    OBJETO_LX
+    WORD    OBJETO_LY
+    WORD    0, 0, GREEN
+    WORD    GREEN, GREEN, GREEN
+    WORD    GREEN, 0, 0
+
+distancias_meteoro2:
+    WORD def_meteoro2_perto
+    WORD def_meteoro2_medio
+    WORD def_meteoro2_longe
     WORD def_distante
 
 def_frame_1:            ; tabela que define o primeiro frame da animacao de explosao (largura, altura e cor dos pixeis)
@@ -768,8 +804,15 @@ novo_objeto:
     JZ inimigo2
     CMP R4, INIMIGO3          ; calhou um inimigo do terceiro tipo?
     JZ inimigo3
-meteoro_bom:
-    MOV R3, distancias_meteoro; tabela que define o meteoro bom em funcao da distancia
+    CMP R4, METEORO_BOM2      ; calhou um meteoro bom do segundo tipo?
+    JZ meteoro_bom2
+meteoro_bom1:
+    MOV R3, distancias_meteoro1; tabela que define o meteoro bom em funcao da distancia
+    MOV R4, METEORO_BOM        ; codigo generico de meteoro bom
+    JMP loop_objeto
+meteoro_bom2:
+    MOV R3, distancias_meteoro2; tabela que define o meteoro bom em funcao da distancia
+    MOV R4, METEORO_BOM        ; codigo generico de meteoro bom
     JMP loop_objeto
 inimigo1:
     MOV R3, distancias_inimigo1; tabela que define o inimigo em funcao da distancia
@@ -1020,8 +1063,8 @@ gera_indice:
     SHR R0, 7                   ; elimina bits para alem do ultimo
     ADD R4, R0                  ; somar ao indice o valor aleatorio
     MOVB R0, [R1]               ; ler do periferico de entrada (colunas)
-    SHR R0, 6                   ; elimina bits para alem dos bits 5-7
-    ADD R4, R0                  ; somar ao indice o valor aleatorio, agora o indice e um numero aleatorio de 0-4
+    SHR R0, 5                   ; elimina bits para alem dos bits 6-8
+    ADD R4, R0                  ; somar ao indice o valor aleatorio, agora o indice e um numero aleatorio de 0-8
     MOV R1, 2
     MUL R1, R4                  ; multiplicar por 2 para aceder a tabela
     MOV R0, escolhe_objeto
