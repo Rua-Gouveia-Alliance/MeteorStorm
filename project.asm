@@ -25,6 +25,7 @@ BG_JOGO     EQU 0       ; imagem de fundo do jogo
 BG_HOME     EQU 1       ; imagem de fundo do home screen
 BG_ENERGIA  EQU 2       ; imagem de fundo de quando se morre por falta de energia
 BG_COLISAO  EQU 3       ; imagem de fundo de quando se morre por colisao
+BG_PAUSA    EQU 4       ; imagem de fundo do menu de pausa
 
 DEL_ECRA    EQU 6000H   ; endereco do comando para apagar o ecra especificado
 DEL_ECRAS   EQU 6002H   ; endereco do comando para apagar todos os ecras
@@ -478,7 +479,7 @@ pausar_jogo_ciclo:
     CMP R0, 5
     JNZ pausar_jogo_ciclo
 
-    MOV R0, BG_ENERGIA          ; cenario de fundo da morte por falta de energia
+    MOV R0, BG_PAUSA            ; cenario de fundo do menu de pausa
     MOV [BACKGROUND], R0        ; atualizar cenario de fundo
 
     MOV R0, PAUSADO
