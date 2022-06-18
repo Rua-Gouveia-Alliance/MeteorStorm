@@ -20,14 +20,16 @@ E – deslocar a nave para a direita
 9 – disparar um míssil
 
 3 – pausar o jogo
+
+2 – terminar o jogo
 ```
 No **menu de pausa**:
 
 ```
 3 – voltar ao jogo
 ```
-Finalmente, no **ecrã de final de jogo** (que ocorre na colisão com inimigo ou
-falta de energia):
+Finalmente, no **ecrã de final de jogo** (que ocorre na colisão com um inimigo,
+quando acaba a energia ou no clique para terminar o jogo):
 
 ```
 C – jogar um jogo novo
