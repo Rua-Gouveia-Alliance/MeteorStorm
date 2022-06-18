@@ -1512,7 +1512,7 @@
     "windowScreenWidthPixels" : 1024,
     "windowScreenHeightixels" : 512,
     "defaultPenColor" : 51063,
-    "image paths" : [ "background0.jpg", "background1.jpg", "background2.jpg", "background3.jpg", "background4.jpg" ],
+    "image paths" : [ "background0.jpg", "background1.jpg", "background2.jpg", "background3.jpg", "background4.jpg", "background5.jpg" ],
     "sounds/videos settings" : [ {
       "filePathName" : "shot_sound.wav",
       "relative sound volume" : 1.0,

@@ -8,6 +8,7 @@ LINHA_TEST  EQU 16      ; linha a testar (comecamos na 4a linha, mas por causa d
 MASCARA_MSD EQU 0FH     ; para remover os 4 bits de maior peso, ao ler as colunas do teclado
 TSTART      EQU 10000001b ; tecla para comecar o jogo
 TPAUSA      EQU 00011000b ; tecla para pausar o jogo
+TTERMINA    EQU 00010100b ; tecla para terminar o jogo
 TMOVESQ     EQU 10000001b ; tecla para mover nave para a esquerda
 TMOVDIR     EQU 10000100b ; tecla para mover nave para a direita
 TMISSIL     EQU 01000010b ; tecla para disparar um missil
@@ -20,12 +21,14 @@ MORTO       EQU -3      ; estado em que o jogo esta (jogador morto)
 HOME        EQU 0       ; estado em que o jogo esta (home screen)
 JOGO        EQU 1       ; estado em que o jogo esta (a ser jogado)
 PAUSADO     EQU 2       ; estado em que o jogo esta (pausado)
+TERMINADO   EQU 3       ; estado em que o jogo esta (terminado)
 
 BG_JOGO     EQU 0       ; imagem de fundo do jogo
 BG_HOME     EQU 1       ; imagem de fundo do home screen
 BG_ENERGIA  EQU 2       ; imagem de fundo de quando se morre por falta de energia
 BG_COLISAO  EQU 3       ; imagem de fundo de quando se morre por colisao
 BG_PAUSA    EQU 4       ; imagem de fundo do menu de pausa
+BG_TERMINA  EQU 5       ; imagem de fundo do menu terminado
 
 DEL_ECRA    EQU 6000H   ; endereco do comando para apagar o ecra especificado
 DEL_ECRAS   EQU 6002H   ; endereco do comando para apagar todos os ecras
@@ -64,6 +67,7 @@ MORTE_COL   EQU 2       ; sinal para o processo de controlo, morte por colisao
 REINICIAR   EQU 3       ; sinal para o processo de controlo, reiniciar o jogo
 PAUSAR      EQU 4       ; sinal para o processo de controlo, pausar o jogo
 DESPAUSAR   EQU 5       ; sinal para o processo de controlo, despausar o jogo
+TERMINAR    EQU 6       ; sinal para o processo de controlo, terminar o jogo
 
 NAVE_X      EQU 30      ; coluna da nave
 NAVE_Y      EQU 28      ; linha da nave
@@ -480,6 +484,11 @@ loop_controlo:
     JZ morte_falta_energia
     MOV R1, MORTE_COL
     CMP R0, R1
+    MOV R2, BG_COLISAO          ; visto que terminar o jogo e equivalente a morte por colisao, apenas selecionamos o bg
+    JZ morte_colisao
+    MOV R1, TERMINAR
+    CMP R0, R1
+    MOV R2, BG_TERMINA          ; idem
     JZ morte_colisao
     JMP controlo
 comecar_jogo:
@@ -556,8 +565,7 @@ morte_colisao:
     MOV [DEL_ECRAS], R0         ; apagar todos os desenhos no ecra
     MOV R0, ECRA_PRINCIPAL      ; garantir que estamos a trabalhar com o ecra certo
     MOV [SEL_ECRA], R0          ; atualizar o ecra que esta selecionado
-    MOV R0, BG_COLISAO          ; cenario de fundo da morte por colisao
-    MOV [BACKGROUND], R0        ; atualizar cenario de fundo
+    MOV [BACKGROUND], R2        ; atualizar cenario de fundo
 
     MOV R0, MORTO
     MOV [estado], R0            ; atualizar estado
@@ -660,6 +668,12 @@ jogo:
     MOV R0, TPAUSA      ; agora R0 tem as coordenadas da tecla que move o rover para a esquerda
     CMP R5, R0          ; verifica se carregamos nessa tecla
     MOV R0, PAUSAR      ; prepara argumento para o processo controlo
+    JZ unlock_controlo  ; efetuar a operacao caso tenha sido pressionada
+
+    ; caso termina o jogo
+    MOV R0, TTERMINA    ; agora R0 tem as coordenadas da tecla que move o rover para a esquerda
+    CMP R5, R0          ; verifica se carregamos nessa tecla
+    MOV R0, TERMINAR    ; prepara argumento para o processo controlo
     JZ unlock_controlo  ; efetuar a operacao caso tenha sido pressionada
 
     JMP espera_tecla
