@@ -1,5 +1,9 @@
 # MeteorStorm
 
+Project done in the scope of the course Introduction to Computer Architecture, IST 2021/2022.
+
+# Relatório
+
 ## 1. Manual de utilizador
 
 O projeto foi desenvolvido e testado tendo em vista a versão do simulador
